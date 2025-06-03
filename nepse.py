@@ -9,12 +9,13 @@ from dotenv import load_dotenv
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
-    return (
-        os.getenv("database_user"),
-        os.getenv("password"),
-        os.getenv("database_name"),
-        os.getenv("collection_name")
-    )
+    database_user = os.getenv("DATABASE_USER")
+    password = os.getenv("PASSWORD")
+    database_name = os.getenv("DATABASE_NAME")
+    collection_name = os.getenv("COLLECTION_NAME")
+
+
+    return database_user, password, database_name, collection_name
 
 
 def get_mongo_client(user: str, pwd: str) -> MongoClient:

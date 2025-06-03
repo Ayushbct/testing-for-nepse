@@ -9,12 +9,13 @@ from dotenv import load_dotenv
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
-    return (
-        os.getenv("database_user"),
-        os.getenv("password"),
-        os.getenv("database_name"),
-        os.getenv("collection_name")
-    )
+    database_user = os.getenv("DATABASE_USER")
+    password = os.getenv("PASSWORD")
+    database_name = os.getenv("DATABASE_NAME")
+    collection_name = os.getenv("COLLECTION_NAME")
+
+
+    return database_user, password, database_name, collection_name
 
 
 def get_mongo_client(user: str, pwd: str) -> MongoClient:
@@ -123,12 +124,13 @@ def compute_net_changes(docs: list) -> list:
 def main():
     # Setup
     user, pwd, db_name, coll_name = load_environment()
-    # client = get_mongo_client(user, pwd)
-    # db = client[db_name]
-    # coll = db[coll_name]
+    client = get_mongo_client(user, pwd)
+    db = client[db_name]
+    coll = db[coll_name]
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
+    # today_str = "2025-06-02"
     df = read_sheet('Broker Analysis.xlsx', sheet_name=today_str)
 
     # Process
@@ -138,7 +140,7 @@ def main():
     # Save and upsert
     txt_file = save_counts_to_file(counts, today_str)
     print(f'Created file: {txt_file}')
-    # upsert_counts(coll, today_str, counts)
+    upsert_counts(coll, today_str, counts)
 
     # Compare historical data
     try:
