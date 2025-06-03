@@ -128,7 +128,8 @@ def main():
     coll = db[coll_name]
 
     # Read today's sheet
-    today_str = datetime.today().strftime('%Y-%m-%d')
+    # today_str = datetime.today().strftime('%Y-%m-%d')
+    today_str = "2025-06-02"
     df = read_sheet('Broker Analysis.xlsx', sheet_name=today_str)
 
     # Process
