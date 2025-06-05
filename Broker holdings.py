@@ -106,7 +106,7 @@ def compute_net_changes(docs: list) -> list:
         prev = oldest['companies'].get(comp, 0)
         curr = latest['companies'].get(comp, 0)
         diff = curr - prev
-        if diff != 0:
+        if diff != 0 and (prev>=9 or curr>=9):
             results.append({
                 "Company": comp,
                 "Previous": prev,
@@ -139,7 +139,7 @@ def main():
 
     # Save and upsert
     # txt_file = save_counts_to_file(counts, today_str)
-    # print(f'Created file: {txt_file}')
+    # shelprint(f'Created file: {txt_file}')
     upsert_counts(coll, today_str, counts)
 
     # Compare historical data
