@@ -8,6 +8,7 @@ DAYS_MAP = {
     "One Week Return": 5,
     "One Month Return": 20,
     "Three Month Return": 60,
+    
 }
 
 def build_price_history(xls, sheet_dates):
