@@ -65,7 +65,7 @@ def calculate_active_day_return_large(file_path, stock_symbol, num_days):
 if __name__ == "__main__":
     file_path = "combined_excel.xlsx"
     symbol = "AKPL"
-    days = 20
+    days = 60
 
     ret, msg = calculate_active_day_return_large(file_path, symbol, days)
     print(msg)

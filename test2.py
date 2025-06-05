@@ -1,81 +1,85 @@
 import pandas as pd
 from datetime import datetime
 
-def calculate_return_for_days(xls, sheet_info, symbol, days_needed):
-    real_trading_days = []
-    prev_close = None
+# Timeframe mapping
+DAYS_MAP = {
+    "One Day Return": 1,
+    "One Week Return": 5,
+    "One Month Return": 20,
+    "Three Month Return": 60,
+}
 
-    for sheet_date, sheet_name in sheet_info:
+def get_sheet_dates(sheet_names):
+    sheets_with_dates = []
+    for name in sheet_names:
+        try:
+            date = datetime.strptime(name, "%Y_%m_%d")
+            sheets_with_dates.append((date, name))
+        except ValueError:
+            continue
+    sheets_with_dates.sort(reverse=True)
+    return sheets_with_dates
+
+def build_price_history(xls, sheet_dates):
+    """Extracts price history for each symbol across active trading days."""
+    price_history = {}
+    last_prices = {}
+
+    for date, sheet_name in sheet_dates:
         try:
             df = pd.read_excel(xls, sheet_name=sheet_name, usecols=["Symbol", "Close"])
         except Exception:
             continue
 
-        df_symbol = df[df["Symbol"] == symbol]
-        if df_symbol.empty:
-            continue
+        for _, row in df.iterrows():
+            symbol = row["Symbol"]
+            close = row["Close"]
+            if pd.isna(symbol) or pd.isna(close):
+                continue
 
-        close_val = df_symbol.iloc[0]["Close"]
-        if isinstance(close_val, str):
-            close_val = close_val.replace(",", "")
-        try:
-            close = float(close_val)
-        except ValueError:
-            continue
+            if isinstance(close, str):
+                close = close.replace(",", "")
+            try:
+                close = float(close)
+            except ValueError:
+                continue
 
-        if prev_close is None or close != prev_close:
-            real_trading_days.append(close)
-            prev_close = close
+            prev_close = last_prices.get(symbol)
+            if prev_close != close:
+                price_history.setdefault(symbol, []).append((date, close))
+                last_prices[symbol] = close
 
-        if len(real_trading_days) > max(days_needed):
-            break
+    return price_history
 
-    returns = {}
-    for d in days_needed:
-        if len(real_trading_days) > d:
-            ret = ((real_trading_days[0] - real_trading_days[d]) / real_trading_days[d]) * 100
-            returns[d] = f"{ret:.2f}%"
-        else:
-            returns[d] = "N/A"
-    return returns
-
-def generate_summary_excel(file_path, output_path="returns_summary.xlsx"):
+def generate_summary_excel_optimized(file_path, output_path="returns_summary.xlsx"):
     xls = pd.ExcelFile(file_path)
-    sheet_names = xls.sheet_names
+    sheet_dates = get_sheet_dates(xls.sheet_names)
 
-    # Sort sheets by date (latest first)
-    sheet_info = []
-    for sn in sheet_names:
-        try:
-            dt = datetime.strptime(sn, "%Y_%m_%d")
-            sheet_info.append((dt, sn))
-        except ValueError:
-            continue
-    sheet_info.sort(reverse=True)
+    print("📊 Building price history...")
+    price_history = build_price_history(xls, sheet_dates)
 
-    latest_sheet = sheet_info[0][1]
-    latest_df = pd.read_excel(xls, sheet_name=latest_sheet, usecols=["Symbol"])
-    symbols = latest_df["Symbol"].dropna().unique()
+    print("📈 Calculating returns...")
+    symbols = list(price_history.keys())
+    summary_rows = [{"Symbol": symbol} for symbol in symbols]
 
-    days_map = {
-        "One Day Return": 1,
-        "One Week Return": 5,
-        "One Month Return": 20,
-        "Three Month Return": 70
-    }
+    for label, days in DAYS_MAP.items():
+        for i, symbol in enumerate(symbols):
+            history = price_history[symbol]
+            prices = [c for _, c in history]
+            if len(prices) > days:
+                start, end = prices[days], prices[0]
+                ret = ((end - start) / start) * 100
+                summary_rows[i][label] = f"{ret:.2f}%"
+            else:
+                summary_rows[i][label] = "N/A"
 
-    summary_data = []
-    for symbol in symbols:
-        returns = calculate_return_for_days(xls, sheet_info, symbol, list(days_map.values()))
-        row = {"Symbol": symbol}
-        for label, days in days_map.items():
-            row[label] = returns.get(days, "N/A")
-        summary_data.append(row)
+        print(f"✅ {label} computation completed.")
 
-    result_df = pd.DataFrame(summary_data)
-    result_df.to_excel(output_path, index=False)
-    print(f"Summary written to: {output_path}")
+    print("💾 Writing to Excel...")
+    df_summary = pd.DataFrame(summary_rows)
+    df_summary.to_excel(output_path, index=False)
+    print(f"🎉 Done: Output saved to {output_path}")
 
 # Example usage
 if __name__ == "__main__":
-    generate_summary_excel("combined_excel.xlsx")
+    generate_summary_excel_optimized("combined_excel.xlsx")
