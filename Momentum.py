@@ -110,6 +110,26 @@ def generate_summary_excel_optimized(file_path, output_path=None, reference_date
 
         print(f"✅ {label} computation completed.")
 
+
+
+    for row in summary_rows:
+        week = row.get("One Week Return", "N/A")
+        month = row.get("One Month Return", "N/A")
+
+        try:
+            week_val = float(week.strip('%'))
+            month_val = float(month.strip('%'))
+
+            # Compute absolute difference
+            row["Week-Month"] = f"{abs(abs(week_val) - abs(month_val)):.2f}%"
+
+            # Check if Month > Week
+            row["Month>Week"] = month_val > week_val
+
+        except Exception:
+            row["Week-Month"] = "N/A"
+            row["Month>Week"] = "N/A"
+
     print("💾 Writing to Excel...")
     df_summary = pd.DataFrame(summary_rows)
     df_summary.to_excel(output_path, index=False)
