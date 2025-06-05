@@ -138,8 +138,8 @@ def main():
     counts = count_companies(df)
 
     # Save and upsert
-    txt_file = save_counts_to_file(counts, today_str)
-    print(f'Created file: {txt_file}')
+    # txt_file = save_counts_to_file(counts, today_str)
+    # print(f'Created file: {txt_file}')
     upsert_counts(coll, today_str, counts)
 
     # Compare historical data
