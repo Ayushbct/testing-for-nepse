@@ -114,7 +114,10 @@ def compute_net_changes(docs: list) -> list:
                 "Change": diff,
                 "Trend": "↑" if diff > 0 else "↓"
             })
+        if diff==0:
+            print("All data is same")
     # sort by absolute change, positives first
+    print(f"\nOldest date:{oldest['date']} and Latest date:{latest['date']}")
     return sorted(
         results,
         key=lambda x: (-abs(x['Change']), -x['Change'])
@@ -139,7 +142,7 @@ def main():
 
     # Save and upsert
     # txt_file = save_counts_to_file(counts, today_str)
-    # shelprint(f'Created file: {txt_file}')
+    # print(f'Created file: {txt_file}')
     upsert_counts(coll, today_str, counts)
 
     # Compare historical data
