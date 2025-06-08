@@ -145,10 +145,17 @@ def main():
     upsert_counts(coll, today_str, counts)
 
     # Compare historical data
-    try:
-        n = int(input("Enter number of recent dates to compare (0 for oldest vs latest): "))
-    except ValueError:
-        n = 0
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        n=2
+    else:
+        try:
+            n = int(input("Enter number of recent dates to compare (0 for oldest vs latest): "))
+        except ValueError:
+            n = 0
+
+    
+
+    
     docs = fetch_recent_docs(coll, today_str, n)
     changes = compute_net_changes(docs)
 
