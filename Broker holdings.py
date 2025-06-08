@@ -114,8 +114,7 @@ def compute_net_changes(docs: list) -> list:
                 "Change": diff,
                 "Trend": "↑" if diff > 0 else "↓"
             })
-        if diff==0:
-            print("All data is same")
+        
     # sort by absolute change, positives first
     print(f"\nOldest date:{oldest['date']} and Latest date:{latest['date']}")
     return sorted(
