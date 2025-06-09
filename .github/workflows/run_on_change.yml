@@ -3,8 +3,8 @@ name: Run Broker_holdings.py on change
 on:
   push:
     paths: 
-      # - 'Broker_Analysis.xlsx'
-      - '**'
+      - 'Broker_Analysis.xlsx'
+      # - '**'
 
 jobs:
   run-script:
