@@ -1,9 +1,9 @@
-name: Run Broker holdings.py on change
+name: Run Broker_holdings.py on change
 
 on:
   push:
     paths:
-      - 'Broker Analysis.xlsx'
+      - 'Broker_Analysis.xlsx'
 
 jobs:
   run-script:
@@ -22,6 +22,6 @@ jobs:
         run: |
           pip install -r requirements.txt || true
 
-      - name: Run Broker holdings.py
-        run: python "Broker holdings.py"
+      - name: Run Broker_holdings.py
+        run: python "Broker_holdings.py"
 
