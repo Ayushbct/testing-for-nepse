@@ -14,7 +14,6 @@ def load_environment():
     database_name = os.environ["DATABASE_NAME"]
     collection_name = os.environ["COLLECTION_NAME"]
 
-    
     return database_user, password, database_name, collection_name
 
 
