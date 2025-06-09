@@ -23,5 +23,10 @@ jobs:
           pip install -r requirements.txt || true
 
       - name: Run Broker_holdings.py
+        env:
+          DATABASE_USER: ${{ secrets.DATABASE_USER }}
+          PASSWORD: ${{ secrets.PASSWORD }}  
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}  
+          COLLECTION_NAME: ${{ secrets.COLLECTION_NAME }}    
         run: python "Broker_holdings.py"
 

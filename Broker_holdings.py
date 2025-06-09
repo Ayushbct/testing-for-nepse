@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
-    database_user = os.getenv("DATABASE_USER")
-    password = os.getenv("PASSWORD")
-    database_name = os.getenv("DATABASE_NAME")
-    collection_name = os.getenv("COLLECTION_NAME")
+    database_user = os.environ("DATABASE_USER")
+    password = os.environ("PASSWORD")
+    database_name = os.environ("DATABASE_NAME")
+    collection_name = os.environ("COLLECTION_NAME")
 
 
     return database_user, password, database_name, collection_name
