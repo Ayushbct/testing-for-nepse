@@ -23,5 +23,5 @@ jobs:
           pip install -r requirements.txt || true
 
       - name: Run Broker holdings.py
-        run: python "./Broker holdings.py"
+        run: python "../Broker holdings.py"
 
