@@ -12,17 +12,29 @@ def run_headless_chrome():
     options.add_argument("--headless=new")  # Headless mode
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+
     options.add_argument(
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     )
 
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 20)
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+    "source": """
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        });
+    """
+})
 
+    wait = WebDriverWait(driver, 20)
+    
     try:
         driver.get("https://nepsealpha.com/nepse-chart")
         print("📄 Page loaded")
+        driver.save_screenshot('step0.png')
 
         # Step 1: Click the first button
         try:
@@ -33,6 +45,7 @@ def run_headless_chrome():
             )))
             driver.execute_script("arguments[0].click();", first_button)
             print("✅ First button clicked (JS)")
+            driver.save_screenshot('step1.png')
             time.sleep(2)
         except Exception:
             print("❌ Failed to click first button")
@@ -47,6 +60,7 @@ def run_headless_chrome():
             )))
             driver.execute_script("arguments[0].click();", prime_picks_button)
             print("✅ 'Prime Picks' button clicked (JS)")
+            driver.save_screenshot('step2.png')
             time.sleep(2)
         except Exception:
             print("❌ Failed to click 'Prime Picks' button")
@@ -62,39 +76,33 @@ def run_headless_chrome():
             driver.execute_script("arguments[0].scrollIntoView(true);", broker_picks_span)
             driver.execute_script("arguments[0].click();", broker_picks_span)
             print("✅ 'Broker Picks' span clicked (JS)")
-            time.sleep(2)
+            driver.save_screenshot('step3.png')
+            time.sleep(3)  # increased wait to give time for data load
         except Exception:
             print("❌ Failed to click 'Broker Picks' span")
             traceback.print_exc()
 
-        # Step 4: Wait for data table and extract rows
+        # Step 4: Extract table rows after page updates (no sorting)
         try:
-            print("⏳ Waiting for table to appear...")
-            table = wait.until(EC.presence_of_element_located((
+            print("⏳ Waiting for data rows to appear...")
+            # Instead of waiting for "No data" to disappear, wait for rows that have actual data cells
+            rows = WebDriverWait(driver, 20).until(lambda d: d.find_elements(
                 By.XPATH,
-                '//*[@id="app"]/div[1]/div[1]/div[3]/div/div[1]/div/div/div[2]/div/div[2]/div/div/table'
-            )))
-            driver.execute_script("arguments[0].scrollIntoView(true);", table)
-            time.sleep(1)
-
-            # Ensure data is loaded (not "No data available")
-            try:
-                wait.until_not(EC.text_to_be_present_in_element(
-                    (By.XPATH, '//table'), "No data available"
-                ))
-
-                # Collect actual data rows
-                rows = wait.until(EC.presence_of_all_elements_located((
-                    By.XPATH,
-                    '//table//tbody/tr'
-                )))
-                print(f"\n✅ Real data rows detected: {len(rows)}\n")
+                '//table//tbody/tr[td and normalize-space(string-length(.)) > 0]'
+            ))
+            driver.save_screenshot('step4.png')
+            # If no rows found, print a message
+            if not rows:
+                print("❌ No data rows found")
+            else:
+                print(f"\n✅ Found {len(rows)} data rows:\n")
                 for row in rows:
-                    print(row.text)
-            except TimeoutException:
-                print("❌ Data rows did not load in time.")
+                    cells = row.find_elements(By.TAG_NAME, "td")
+                    print(" | ".join([cell.text.strip() for cell in cells if cell.text.strip() != ""]))
+        except TimeoutException:
+            print("❌ Timeout: Data rows did not appear")
         except Exception:
-            print("❌ Failed to find or extract table")
+            print("❌ Failed to extract rows")
             traceback.print_exc()
 
     finally:
