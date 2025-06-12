@@ -130,8 +130,8 @@ def main():
     coll = db[coll_name]
 
     # Read today's sheet
-    # today_str = datetime.today().strftime('%Y-%m-%d')
-    today_str = "2025-06-11"
+    today_str = datetime.today().strftime('%Y-%m-%d')
+    # today_str = "2025-06-11"
     df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
 
     # Process
