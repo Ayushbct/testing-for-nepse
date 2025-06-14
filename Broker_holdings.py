@@ -4,7 +4,7 @@ from datetime import datetime
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
-
+manual_input=False
 
 def load_environment():
     """Load environment variables and return credentials."""
@@ -82,15 +82,17 @@ def upsert_counts(collection, date_str: str, counts: pd.Series):
 
 
 def fetch_recent_docs(collection, date_str: str, n: int = 0) -> list:
-    """Fetch up to 'n' recent documents, or oldest & latest if n<=0."""
+    """Fetch recent documents. For n <= 2, fetch the most recent 2 documents."""
     all_docs = list(collection.find(
         {"date": {"$lte": date_str}},
         sort=[("date", 1)]
     ))
+
     if len(all_docs) < 2:
         raise RuntimeError(f"Need at least 2 documents to compare, found {len(all_docs)}")
-    if n <= 0 or n > len(all_docs):
-        return [all_docs[0], all_docs[-1]]
+
+    if n <= 2:
+        return all_docs[-2:]  # ✅ Always return the two most recent docs
     return all_docs[-n:]
 
 
@@ -131,8 +133,16 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
-    # today_str = "2025-06-11"
+    
+    xls = pd.ExcelFile('Broker_Analysis.xlsx')
+    sheet_names = xls.sheet_names
+
+    if today_str not in sheet_names:
+        today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
+
+    # Read the appropriate sheet
     df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
+    
 
     # Process
     df = preprocess(df)
@@ -148,9 +158,12 @@ def main():
         n=2
     else:
         try:
-            n = int(input("Enter number of recent dates to compare (0 for oldest vs latest): "))
+            if manual_input:
+                n = int(input("Enter number of recent dates to compare: "))
+            else:
+                n=2
         except ValueError:
-            n = 0
+            n = 2
 
     
 
