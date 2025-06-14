@@ -7,27 +7,6 @@ from dotenv import load_dotenv
 manual_input=False
 sending_mail=False
 
-import smtplib, ssl
-
-def send_email():
-    port = 465
-    smtp_server = "smtp.gmail.com"
-    USER_EMAIL = os.environ.get("USER_EMAIL")
-    USER_PASSWORD = os.environ.get("USER_PASSWORD")
-
-    message = """\
-Subject: Welcome Ubaydah
-
-This is your welcome email running
-"""
-
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
-        server.login(USER_EMAIL, USER_PASSWORD)
-        server.sendmail(USER_EMAIL, USER_EMAIL, message)
-    print("Email Sucessfully Sent")
-
-
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
@@ -204,4 +183,4 @@ def main():
 if __name__ == "__main__":
     main()
     if sending_mail:
-        send_email()
+        pass
