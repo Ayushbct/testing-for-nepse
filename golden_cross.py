@@ -87,7 +87,8 @@ if recent_crosses.empty:
     print("No Golden Cross detected in the recent window.")
 else:
     print("\n🟡 Golden Cross formed on these dates:")
-    for symbol, group in recent_crosses.groupby('Symbol'):
-        dates = group['Date'].dt.date.tolist()
-        dates_str = ", ".join(str(d) for d in dates)
-        print(f" - {symbol}: {dates_str}")
+    # Sort by Date descending before printing
+    sorted_crosses = recent_crosses.sort_values('Date', ascending=False)
+
+    for _, row in sorted_crosses.iterrows():
+        print(f" - {row['Symbol']}: {row['Date'].date()}")
