@@ -4,6 +4,7 @@ from datetime import datetime
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
+import sending_email
 manual_input=False
 sending_mail=False
 
@@ -183,4 +184,4 @@ def main():
 if __name__ == "__main__":
     main()
     if sending_mail:
-        pass
+        sending_email.send_email()

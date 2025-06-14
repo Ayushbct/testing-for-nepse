@@ -1,37 +1,43 @@
-import smtplib, ssl
+import smtplib
 import os
+from email.message import EmailMessage
 from dotenv import load_dotenv
 load_dotenv()
-def send_email():
+def send_email(subject = 'Default Subject',body = 'Default Body'):
     
+    USER_EMAIL = os.environ.get("USER_EMAIL")
+    USER_PASSWORD = os.environ.get("USER_PASSWORD")
 
-    port = 465
-    smtp_server = "smtp.gmail.com"
-    # USER_EMAIL = os.environ.get("USER_EMAIL")
+    # Email configuration
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    sender_email = USER_EMAIL
+    sender_password = USER_PASSWORD
+    recipient_email = USER_EMAIL
+    # subject = 'Hello from Python'
+    # body = 'This is a test message sent using Python and SMTP.'
     
-    # USER_PASSWORD = os.environ.get("USER_PASSWORD")
+    # Create the email message
+    msg = EmailMessage()
+    msg['From'] = sender_email
+    msg['To'] = recipient_email
+    msg['Subject'] = subject
+    msg.set_content(body)
     
+    # Send the email via SMTP
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()  # Secure the connection
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            print('Email sent successfully!')
+    except Exception as e:
+        print(f'Error sending email: {e}')
 
-    message = """\
-        Subject: Welcome Ubaydah
 
-        This is your welcome email running 
-    """
-
-    context = ssl.create_default_context()
-
-    server = smtplib.SMTP_SSL(smtp_server, port, context=context)
-
-    server.login(USER_EMAIL, USER_PASSWORD)
-    server.sendmail(USER_EMAIL, USER_EMAIL, message)
-
-    print("Email Sucessfully Sent")
+    
 
 if __name__ == "__main__":
     
-    # send_email()
-    USER_EMAIL = os.environ.get("USER_EMAIL")
+    send_email()
     
-    USER_PASSWORD = os.environ.get("DATABASE_NAME")
-    
-    print(USER_EMAIL,USER_PASSWORD)
