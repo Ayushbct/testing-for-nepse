@@ -29,5 +29,6 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}  
           DATABASE_NAME: ${{ secrets.DATABASE_NAME }}  
           COLLECTION_NAME: ${{ secrets.COLLECTION_NAME }}    
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}    
         run: python "Broker_holdings.py"
 

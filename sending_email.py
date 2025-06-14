@@ -32,5 +32,6 @@ if __name__ == "__main__":
     # send_email()
     USER_EMAIL = os.environ.get("USER_EMAIL")
     
-    USER_PASSWORD = os.environ.get("USER_PASSWORD")
+    USER_PASSWORD = os.environ.get("DATABASE_NAME")
+    
     print(USER_EMAIL,USER_PASSWORD)
