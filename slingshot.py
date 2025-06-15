@@ -16,7 +16,8 @@ def load_symbol_data_from_excel(file_path, symbol):
         symbol_data = df[df['Symbol'] == symbol]
         if not symbol_data.empty:
             symbol_data = symbol_data.copy()
-            symbol_data['Date'] = pd.to_datetime(sheet)
+            symbol_data['Date'] = pd.to_datetime(sheet, format="%Y_%m_%d")
+
             combined_data.append(symbol_data)
 
     if not combined_data:
