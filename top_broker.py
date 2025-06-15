@@ -74,6 +74,9 @@ for company in top_10_companies:
     for col in columns_to_use:
         freq_df.loc[company, col] = df[col + '_company'].eq(company).sum()
 
+freq_df['Total'] = freq_df.sum(axis=1)
+# Sort by total in descending order
+freq_df = freq_df.sort_values(by='Total', ascending=False)
 # Display result
 
 email_subject=f"Frequency of Top 10 companies in (Top 1, Top 2, Top 3): for {today_str}"
