@@ -4,7 +4,7 @@ from openpyxl import load_workbook
 from concurrent.futures import ThreadPoolExecutor
 import sending_email
 
-sending_mail=False
+sending_mail=True
 email_subject="🟡Golden Cross in the last 7 trading days"
 email_body=""
 
@@ -79,7 +79,7 @@ def detect_golden_cross(excel_path, short_window, long_window, recent_window=7):
     global email_body
     output=f"\n🟡 [{short_window}-{long_window}] Golden Cross detected in last {recent_window} trading days (up to {recent_unique_dates.max().date()}):"
     print(output)
-    email_body+=output
+    email_body +=output
     
     if recent_crosses.empty:
         print("No Golden Cross detected.")
@@ -88,7 +88,8 @@ def detect_golden_cross(excel_path, short_window, long_window, recent_window=7):
         for _, row in sorted_crosses.iterrows():
             output=f" - {row['Symbol']}: {row['Date'].date()}"
             print(output)
-            email_body+=output
+            email_body +="\n"+output
+            
 
 
 
