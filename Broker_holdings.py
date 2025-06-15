@@ -6,7 +6,7 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import sending_email
 manual_input=False
-sending_mail=False
+sending_mail=True
 email_subject=""
 email_body=""
 

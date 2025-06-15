@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import sending_email
 manual_input=False
-sending_mail=False
+sending_mail=True
 email_subject=""
 email_body=""
 
