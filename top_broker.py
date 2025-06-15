@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import sending_email
 manual_input=False
-sending_mail=True
+sending_mail=False
 email_subject=""
 email_body=""
 
@@ -32,12 +32,16 @@ else:
         except ValueError:
             today_str = datetime.today().strftime('%Y-%m-%d')
 
+sheet_date_str = sheet_names[0]
 
+# Convert to datetime for comparison
+today_date = datetime.strptime(today_str, '%Y-%m-%d')
+sheet_date = datetime.strptime(sheet_date_str, '%Y-%m-%d')
 
-# Use today's date only if it's the first sheet name
-if today_str not in sheet_names:
-        print(f'{today_str} not found')
-        today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
+# Use today's date only if it's greater than the sheet name date
+if today_date > sheet_date:
+    print(f'{today_str} greater than {sheet_date_str} so {sheet_date_str} is selected')
+    today_str = sheet_date_str  # fallback: assign string, not datetime
         
 
 # Read the appropriate sheet

@@ -3,8 +3,8 @@ name: Run .py files on change
 on:
   push:
     paths: 
-    #   - 'Broker_Analysis.xlsx'
-    - '**'
+      - 'Broker_Analysis.xlsx'
+    # - '**'
 
 jobs:
   run-script:

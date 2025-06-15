@@ -6,7 +6,7 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import sending_email
 manual_input=False
-sending_mail=True
+sending_mail=False
 email_subject=""
 email_body=""
 
@@ -136,16 +136,29 @@ def main():
     db = client[db_name]
     coll = db[coll_name]
 
-    # Read today's sheet
-    today_str = datetime.today().strftime('%Y-%m-%d')
-    # today_str = '2025-06-09'
+    
+    
     
 
     xls = pd.ExcelFile('Broker_Analysis.xlsx')
     sheet_names = xls.sheet_names
 
-    # if today_str not in sheet_names:
-    #     today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
+    # Read today's sheet
+    today_str = datetime.today().strftime('%Y-%m-%d')
+    sheet_date_str = sheet_names[0]
+
+    # Convert to datetime for comparison
+    today_date = datetime.strptime(today_str, '%Y-%m-%d')
+    sheet_date = datetime.strptime(sheet_date_str, '%Y-%m-%d')  
+
+    # Use today's date only if it's greater than the sheet name date
+    if today_date > sheet_date:
+        print(f'{today_str} greater than latest date {sheet_date_str}')
+        # today_str = sheet_date_str  
+        exit()
+        
+        
+    
     
     # Read the appropriate sheet
     df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
