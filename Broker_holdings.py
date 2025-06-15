@@ -6,7 +6,7 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import sending_email
 manual_input=False
-sending_mail=True
+sending_mail=False
 email_subject=""
 email_body=""
 
@@ -86,17 +86,15 @@ def upsert_counts(collection, date_str: str, counts: pd.Series):
 
 
 def fetch_recent_docs(collection, date_str: str, n: int = 0) -> list:
-    """Fetch recent documents. For n <= 2, fetch the most recent 2 documents."""
+    """Fetch up to 'n' recent documents, or oldest & latest if n<=0."""
     all_docs = list(collection.find(
         {"date": {"$lte": date_str}},
         sort=[("date", 1)]
     ))
-
     if len(all_docs) < 2:
         raise RuntimeError(f"Need at least 2 documents to compare, found {len(all_docs)}")
-
-    if n <= 2:
-        return all_docs[-2:]  # ✅ Always return the two most recent docs
+    if n <= 0 or n > len(all_docs):
+        return [all_docs[0], all_docs[-1]]
     return all_docs[-n:]
 
 
@@ -140,17 +138,19 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
+    # today_str = '2025-06-09'
     
+
     xls = pd.ExcelFile('Broker_Analysis.xlsx')
     sheet_names = xls.sheet_names
 
-    if today_str not in sheet_names:
-        today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
-
+    # if today_str not in sheet_names:
+    #     today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
+    
     # Read the appropriate sheet
     df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
     
-
+    
     # Process
     df = preprocess(df)
     counts = count_companies(df)
@@ -159,6 +159,7 @@ def main():
     # txt_file = save_counts_to_file(counts, today_str)
     # print(f'Created file: {txt_file}')
     upsert_counts(coll, today_str, counts)
+    
 
     # Compare historical data
     if os.getenv("GITHUB_ACTIONS") == "true":
@@ -173,9 +174,13 @@ def main():
             n = 2
 
     
-
     
-    docs = fetch_recent_docs(coll, today_str, n)
+    # print("\n📅 Dates in collection:")
+    # for doc in coll.find({}, {"date": 1, "_id": 0}).sort("date", 1):
+    #     print(doc["date"])
+    # print(f"\n🧭 Today_str: {today_str}")
+    
+    docs = fetch_recent_docs(coll,today_str, n)
     changes = compute_net_changes(docs)
 
     # Output results
@@ -190,7 +195,10 @@ def main():
         email_body +="\n"+output
         
         print(output)
-    
+    if len(email_body)==0:
+        output="No difference found with the filter"
+        email_body +=output
+        print(output)
     
 
 
