@@ -10,28 +10,37 @@ def load_symbol_data_from_excel(file_path, symbol):
     for sheet in xls.sheet_names:
         df = xls.parse(sheet)
 
+        # Strip whitespace from column names
+        df.columns = df.columns.str.strip()
+
         if 'Symbol' not in df.columns:
             continue
+
+        # Strip whitespace and uppercase symbols in the column to match exactly
+        df['Symbol'] = df['Symbol'].astype(str).str.strip().str.upper()
+        symbol = symbol.upper()
 
         symbol_data = df[df['Symbol'] == symbol].copy()
         if symbol_data.empty:
             continue
 
-        # Parse date from sheet name like "2025_06_10"
         try:
+            # Parse date from sheet name
             symbol_data['Date'] = pd.to_datetime(sheet, format="%Y_%m_%d")
         except ValueError:
-            print(f"Skipping sheet: {sheet} - Date format not recognized.")
+            print(f"Skipping sheet: {sheet} - invalid date format.")
             continue
 
-        # Columns expected: 'Open', 'High', 'Low', 'Close', 'Volume'
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Vol']
-        if not all(col in symbol_data.columns for col in required_cols):
-            print(f"Sheet {sheet} missing required columns; skipping.")
-            continue
+        # Columns to clean: remove commas and convert to numeric
+        cols_to_clean = ['Open', 'High', 'Low', 'Close', 'Vol']
 
-        symbol_data[required_cols] = symbol_data[required_cols].apply(pd.to_numeric, errors='coerce')
-        symbol_data.dropna(subset=required_cols, inplace=True)
+        for col in cols_to_clean:
+            if col in symbol_data.columns:
+                symbol_data[col] = symbol_data[col].astype(str).str.replace(',', '')
+                symbol_data[col] = pd.to_numeric(symbol_data[col], errors='coerce')
+
+        # Drop rows with missing data after conversion
+        symbol_data.dropna(subset=cols_to_clean, inplace=True)
 
         combined_data.append(symbol_data)
 
@@ -41,6 +50,7 @@ def load_symbol_data_from_excel(file_path, symbol):
     full_df = pd.concat(combined_data)
     full_df.sort_values('Date', inplace=True)
     full_df.reset_index(drop=True, inplace=True)
+
     return full_df
 
 def calculate_sling_shot(df):
