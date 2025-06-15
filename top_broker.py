@@ -32,13 +32,12 @@ else:
         except ValueError:
             today_str = datetime.today().strftime('%Y-%m-%d')
 
-# Read today's sheet
-# today_str = datetime.today().strftime('%Y-%m-%d')
+
 
 # Use today's date only if it's the first sheet name
-# if today_str not in sheet_names:
-#         print(f'{today_str} not found')
-#         today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
+if today_str not in sheet_names:
+        print(f'{today_str} not found')
+        today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
         
 
 # Read the appropriate sheet
