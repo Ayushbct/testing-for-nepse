@@ -1,7 +1,11 @@
 import pandas as pd
 from datetime import datetime
 import os
+import sending_email
 manual_input=False
+sending_mail=True
+email_subject=""
+email_body=""
 
 def read_sheet(file_path: str, sheet_name: str = None) -> pd.DataFrame:
     """Read Excel sheet by name or fall back to first sheet."""
@@ -22,7 +26,7 @@ if os.getenv("GITHUB_ACTIONS") == "true":
 else:
         try:
             if manual_input:
-                today_str = input("Enter date (yyyy-mm-dd) to calulate: ")
+                today_str = input("Enter date (yyyy-mm-dd) to calculate: ")
             else:
                 today_str = datetime.today().strftime('%Y-%m-%d')     
         except ValueError:
@@ -36,7 +40,7 @@ if today_str not in sheet_names:
         print(f'{today_str} not found')
         today_str = sheet_names[0]  # fallback to first sheet (assumed latest)
         
-print(f'Calulation for {today_str}')
+
 # Read the appropriate sheet
 df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
 
@@ -68,5 +72,10 @@ for company in top_10_companies:
         freq_df.loc[company, col] = df[col + '_company'].eq(company).sum()
 
 # Display result
-print("Frequency of Top 10 companies in each column (Top 1, Top 2, Top 3):")
-print(freq_df)
+
+email_subject=f"Frequency of Top 10 companies in (Top 1, Top 2, Top 3): for {today_str}"
+print(email_subject)
+email_body += freq_df.to_string()
+print(email_body)
+if sending_mail:
+     sending_email.send_email(email_subject,email_body)
