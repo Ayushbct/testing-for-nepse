@@ -3,8 +3,8 @@ name: Run .py files from combined_excel.xlsx
 on:
   push:
     paths: 
-    #   - 'combined_excel.xlsx'
-    - 'golden_cross.py'
+      - 'combined_excel.xlsx'
+    
 
 jobs:
   run-script:

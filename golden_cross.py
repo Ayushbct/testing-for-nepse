@@ -5,7 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 import sending_email
 
 sending_mail=True
-email_subject="🟡Golden Cross in the last 7 trading days"
+recent_window=7
+email_subject=f"🟡Golden Cross in the last {recent_window} trading days"
 email_body=""
 
 windows = {
@@ -58,8 +59,8 @@ def detect_golden_cross(excel_path, short_window, long_window, recent_window=7):
     for symbol in symbols:
         df = combined_df[combined_df['Symbol'] == symbol].copy()
         df = df.sort_values('Date')
-        df[f'SMA{short_window}'] = df['Close'].rolling(window=short_window, min_periods=1).mean()
-        df[f'SMA{long_window}'] = df['Close'].rolling(window=long_window, min_periods=1).mean()
+        df[f'SMA{short_window}'] = df['Close'].rolling(window=short_window, min_periods=short_window).mean()
+        df[f'SMA{long_window}'] = df['Close'].rolling(window=long_window, min_periods=long_window).mean()
         df['GoldenCross'] = (
             df[f'SMA{short_window}'] > df[f'SMA{long_window}']
         ) & (
@@ -95,7 +96,7 @@ def detect_golden_cross(excel_path, short_window, long_window, recent_window=7):
 
 if __name__ == "__main__":
     for label, (short_window, long_window) in windows.items():
-        detect_golden_cross(excel_path, short_window, long_window, recent_window=7)
+        detect_golden_cross(excel_path, short_window, long_window, recent_window=recent_window)
     if len(email_body)==0:
         sending_mail=False
     if sending_mail:
