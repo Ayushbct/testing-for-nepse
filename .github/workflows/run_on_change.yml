@@ -1,10 +1,10 @@
-name: Run Broker_holdings.py on change
+name: Run .py files on change
 
 on:
   push:
     paths: 
-      - 'Broker_Analysis.xlsx'
-      # - '**'
+      # - 'Broker_Analysis.xlsx'
+      - '**'
 
 jobs:
   run-script:
@@ -23,17 +23,22 @@ jobs:
         run: |
           pip install -r requirements.txt || true
 
-      - name: Run Broker_holdings.py
+      # - name: Run Broker_holdings.py
+      #   env:
+      #     DATABASE_USER: ${{ secrets.DATABASE_USER }}
+      #     PASSWORD: ${{ secrets.PASSWORD }}  
+      #     DATABASE_NAME: ${{ secrets.DATABASE_NAME }}  
+      #     COLLECTION_NAME: ${{ secrets.COLLECTION_NAME }}    
+      #     # USER_EMAIL: ${{ secrets.USER_EMAIL }}    
+      #   run: python "Broker_holdings.py"
+      # - name: Run top_broker.py
+      #   # env:
+      #   #   USER_EMAIL: ${{ secrets.USER_EMAIL }}    
+      #   #   USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
+      #   run: python top_broker.py
+      - name: Run sending_email.py
         env:
-          DATABASE_USER: ${{ secrets.DATABASE_USER }}
-          PASSWORD: ${{ secrets.PASSWORD }}  
-          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}  
-          COLLECTION_NAME: ${{ secrets.COLLECTION_NAME }}    
-          # USER_EMAIL: ${{ secrets.USER_EMAIL }}    
-        run: python "Broker_holdings.py"
-      - name: Run top_broker.py
-        # env:
-        #   USER_EMAIL: ${{ secrets.USER_EMAIL }}    
-        #   USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
-        run: python top_broker.py
+          USER_EMAIL: ${{ secrets.USER_EMAIL }}    
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
+        run: python sending_email.py
 
