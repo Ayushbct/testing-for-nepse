@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import sending_email
 manual_input=False
 sending_mail=False
+email_subject=""
+email_body=""
 
 def load_environment():
     """Load environment variables and return credentials."""
@@ -119,7 +121,10 @@ def compute_net_changes(docs: list) -> list:
             })
         
     # sort by absolute change, positives first
-    print(f"\nOldest date:{oldest['date']} and Latest date:{latest['date']}")
+    # print(f"\nOldest date:{oldest['date']} and Latest date:{latest['date']}")
+    global email_subject
+    email_subject=f"Broker Holdings change from ({oldest['date']} → {latest['date']}):"
+
     return sorted(
         results,
         key=lambda x: (-abs(x['Change']), -x['Change'])
@@ -174,14 +179,34 @@ def main():
     changes = compute_net_changes(docs)
 
     # Output results
-    print("\nCompany Holdings Net Change (oldest → latest):")
+    
+    # email_subject=f"Company Holdings Net Change (oldest → latest):"
+    global email_body
+    print(f"\n{email_subject}")
+    
     for e in changes:
-        print(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
+        # output=(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
+        output = (
+    f"{e['Company']:<30}"   # Company left aligned in 30 chars
+    f"{e['Previous']:>2}"   # Previous right aligned in 2 chars
+    "    →    "             # fixed 4 spaces + arrow + 4 spaces = 9 chars fixed width for arrow
+    f"{e['Current']:>2}"    # Current right aligned in 2 chars
+    "     "                 # fixed 5 spaces after current
+    f"({e['Change']:>+2}, {e['Trend']})"  # Change always with sign, 2 chars width + trend
+)
 
+
+        
+        
+
+        email_body +="\n"+output
+        
+        print(output)
+    
     
 
 
 if __name__ == "__main__":
     main()
     if sending_mail:
-        sending_email.send_email()
+        sending_email.send_email(email_subject,email_body)
