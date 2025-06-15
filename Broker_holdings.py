@@ -6,7 +6,7 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import sending_email
 manual_input=False
-sending_mail=False
+sending_mail=True
 email_subject=""
 email_body=""
 
@@ -185,20 +185,8 @@ def main():
     print(f"\n{email_subject}")
     
     for e in changes:
-        # output=(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
-        output = (
-    f"{e['Company']:<30}"   # Company left aligned in 30 chars
-    f"{e['Previous']:>2}"   # Previous right aligned in 2 chars
-    "    →    "             # fixed 4 spaces + arrow + 4 spaces = 9 chars fixed width for arrow
-    f"{e['Current']:>2}"    # Current right aligned in 2 chars
-    "     "                 # fixed 5 spaces after current
-    f"({e['Change']:>+2}, {e['Trend']})"  # Change always with sign, 2 chars width + trend
-)
-
-
+        output=(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
         
-        
-
         email_body +="\n"+output
         
         print(output)
