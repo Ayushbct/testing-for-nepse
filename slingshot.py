@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from datetime import datetime
 
 def load_symbol_data_from_excel(file_path, symbol):
     xls = pd.ExcelFile(file_path)
@@ -10,26 +9,44 @@ def load_symbol_data_from_excel(file_path, symbol):
 
     for sheet in xls.sheet_names:
         df = xls.parse(sheet)
+
         if 'Symbol' not in df.columns:
-            continue  # skip malformed sheets
+            continue
 
-        symbol_data = df[df['Symbol'] == symbol]
-        if not symbol_data.empty:
-            symbol_data = symbol_data.copy()
+        symbol_data = df[df['Symbol'] == symbol].copy()
+        if symbol_data.empty:
+            continue
+
+        # Parse date from sheet name like "2025_06_10"
+        try:
             symbol_data['Date'] = pd.to_datetime(sheet, format="%Y_%m_%d")
+        except ValueError:
+            print(f"Skipping sheet: {sheet} - Date format not recognized.")
+            continue
 
-            combined_data.append(symbol_data)
+        # Columns expected: 'Open', 'High', 'Low', 'Close', 'Volume'
+        required_cols = ['Open', 'High', 'Low', 'Close', 'Vol']
+        if not all(col in symbol_data.columns for col in required_cols):
+            print(f"Sheet {sheet} missing required columns; skipping.")
+            continue
+
+        symbol_data[required_cols] = symbol_data[required_cols].apply(pd.to_numeric, errors='coerce')
+        symbol_data.dropna(subset=required_cols, inplace=True)
+
+        combined_data.append(symbol_data)
 
     if not combined_data:
         raise ValueError(f"No data found for symbol '{symbol}'")
 
     full_df = pd.concat(combined_data)
     full_df.sort_values('Date', inplace=True)
-    return full_df.reset_index(drop=True)
+    full_df.reset_index(drop=True, inplace=True)
+    return full_df
 
 def calculate_sling_shot(df):
     df['EMA38'] = df['Close'].ewm(span=38, adjust=False).mean()
     df['EMA62'] = df['Close'].ewm(span=62, adjust=False).mean()
+
     df['Trend'] = np.where(df['EMA38'] > df['EMA62'], 'Up',
                    np.where(df['EMA38'] < df['EMA62'], 'Down', 'Neutral'))
 
@@ -41,46 +58,59 @@ def calculate_sling_shot(df):
     return df
 
 def plot_sling_shot(df, symbol, filename="sling_shot_chart.png"):
+    if df.empty:
+        print(f"No data to plot for {symbol}")
+        return
+
     fig, ax = plt.subplots(figsize=(16, 8))
 
+    # Candle body colors: green if Close >= Open else red
     colors = ['green' if c >= o else 'red' for c, o in zip(df['Close'], df['Open'])]
-    ax.bar(df['Date'], df['High'] - df['Low'], bottom=df['Low'], color='gray', width=0.5, alpha=0.3)
-    ax.bar(df['Date'], df['Close'] - df['Open'], bottom=df['Open'], color=colors, width=0.5)
 
+    # Plot wicks
+    ax.vlines(df['Date'], df['Low'], df['High'], color='black', linewidth=1)
+
+    # Plot candle bodies
+    ax.bar(df['Date'], df['Close'] - df['Open'], bottom=df['Open'], color=colors, width=0.6, edgecolor='black')
+
+    # Plot EMA lines
     ax.plot(df['Date'], df['EMA38'], label='EMA38', color='orange', linewidth=1.5)
     ax.plot(df['Date'], df['EMA62'], label='EMA62', color='blue', linewidth=2)
 
-    ax.scatter(df['Date'][df['Aggressive_Long']], df['Low'][df['Aggressive_Long']] * 0.995,
+    # Scatter for entries
+    ax.scatter(df.loc[df['Aggressive_Long'], 'Date'], df.loc[df['Aggressive_Long'], 'Low'] * 0.995,
                label='Aggressive Long', marker='v', color='yellow', alpha=0.8)
-    ax.scatter(df['Date'][df['Aggressive_Short']], df['High'][df['Aggressive_Short']] * 1.005,
+    ax.scatter(df.loc[df['Aggressive_Short'], 'Date'], df.loc[df['Aggressive_Short'], 'High'] * 1.005,
                label='Aggressive Short', marker='^', color='yellow', alpha=0.8)
 
-    ax.scatter(df['Date'][df['Cons_Long']], df['Low'][df['Cons_Long']] * 0.995,
+    ax.scatter(df.loc[df['Cons_Long'], 'Date'], df.loc[df['Cons_Long'], 'Low'] * 0.995,
                label='Conservative Long', marker='^', color='lime')
-    ax.scatter(df['Date'][df['Cons_Short']], df['High'][df['Cons_Short']] * 1.005,
+    ax.scatter(df.loc[df['Cons_Short'], 'Date'], df.loc[df['Cons_Short'], 'High'] * 1.005,
                label='Conservative Short', marker='v', color='red')
 
+    # Annotate trend changes
     for i in range(1, len(df)):
-        if df['Trend'].iloc[i] == 'Up' and df['Trend'].iloc[i-1] != 'Up':
-            ax.annotate('▲', (df['Date'].iloc[i], df['Low'].iloc[i]*0.99), color='lime', fontsize=12, ha='center')
-        elif df['Trend'].iloc[i] == 'Down' and df['Trend'].iloc[i-1] != 'Down':
-            ax.annotate('▼', (df['Date'].iloc[i], df['High'].iloc[i]*1.01), color='red', fontsize=12, ha='center')
+        if df['Trend'].iloc[i] == 'Up' and df['Trend'].iloc[i - 1] != 'Up':
+            ax.annotate('▲', (df['Date'].iloc[i], df['Low'].iloc[i] * 0.99), color='lime', fontsize=12, ha='center')
+        elif df['Trend'].iloc[i] == 'Down' and df['Trend'].iloc[i - 1] != 'Down':
+            ax.annotate('▼', (df['Date'].iloc[i], df['High'].iloc[i] * 1.01), color='red', fontsize=12, ha='center')
 
+    # Date formatting
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     ax.set_title(f"SlingShot System: {symbol}")
     ax.legend()
     plt.xticks(rotation=45)
-    plt.grid()
+    plt.grid(True)
     plt.tight_layout()
 
     plt.savefig(filename, dpi=300)
     plt.close()
     print(f"Saved chart as: {filename}")
 
-# 🔁 MAIN: symbol input and processing
-symbol = "NIFRA"  # ⬅️ Replace this with user input if needed
+if __name__ == "__main__":
+    symbol = "NIFRA"  # Change to user input or desired symbol
+    excel_file = "combined_excel.xlsx"
 
-excel_file = "combined_excel.xlsx"
-df = load_symbol_data_from_excel(excel_file, symbol)
-df = calculate_sling_shot(df)
-plot_sling_shot(df, symbol, filename=f"sling_shot_{symbol}.png")
+    df = load_symbol_data_from_excel(excel_file, symbol)
+    df = calculate_sling_shot(df)
+    plot_sling_shot(df, symbol, filename=f"sling_shot_{symbol}.png")
