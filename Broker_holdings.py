@@ -209,6 +209,8 @@ def main():
         
         print(output)
     if len(email_body)==0:
+        global sending_mail
+        sending_mail=False
         output="No difference found with the filter"
         email_body +=output
         print(output)

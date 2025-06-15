@@ -1,51 +1,102 @@
-import requests
-import json
+import pandas as pd
+import numpy as np
+from openpyxl import load_workbook
+from concurrent.futures import ThreadPoolExecutor
+import sending_email
 
-def fetch_broker_picks(session_cookie=None):
-    """
-    Fetches broker picks JSON from NepseAlpha.
+sending_mail=False
+email_subject="🟡Golden Cross in the last 7 trading days"
+email_body=""
 
-    If an FSK (session) cookie is needed, pass it in `session_cookie`.
-    """
-    url = (
-        "https://nepsealpha.com/trading-menu/prime-picks/broker_picks"
-        "?fsk=o2MZpxGte5lRCzBS"
-    )
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "X-Requested-With": "XMLHttpRequest"
-    }
-    cookies = {}
-    if session_cookie:
-        cookies["fsk"] = session_cookie
+windows = {
+    # "window1": [5, 20],
+    "window2": [20, 50],
+    "window3": [50, 200]
+}
 
-    resp = requests.get(url, headers=headers, cookies=cookies)
-    resp.raise_for_status()
-    return resp.json()
+# --- CONFIG ---
+excel_path = "combined_excel.xlsx"
 
-def parse_broker_picks(data):
-    """
-    Parses structured JSON data into a clean Python list.
-    Adjust field names based on actual JSON structure.
-    """
-    picks = []
-    for entry in data.get("data", []):
-        picks.append({
-            "symbol": entry.get("symbol"),
-            "broker": entry.get("broker"),
-            "rating": entry.get("rating"),
-            "target_price": entry.get("target_price"),
-            "stop_loss": entry.get("stop_loss"),
-            "timestamp": entry.get("timestamp"),
-        })
-    return picks
+def detect_golden_cross(excel_path, short_window, long_window, recent_window=7):
+    if long_window >= 20 and long_window<50:
+        lookback_days = long_window + 30
+    elif long_window >= 50 and long_window<200:
+        lookback_days = long_window + 50
+    else:
+        lookback_days = long_window + 100
 
-def main():
-    # Optionally replace with a valid fsk value if needed
-    broker_data = fetch_broker_picks(session_cookie="o2MZpxGte5lRCzBS")
-    parsed = parse_broker_picks(broker_data)
-    print(json.dumps(parsed, indent=2))
+    wb = load_workbook(excel_path, read_only=True)
+    sheet_names = wb.sheetnames
+    selected_sheets = sheet_names[:lookback_days]
+
+    def read_sheet(sheet_name):
+        try:
+            df = pd.read_excel(excel_path, sheet_name=sheet_name, usecols=["Symbol", "Close"], engine="openpyxl")
+            df.columns = df.columns.str.strip()
+            df['Date'] = pd.to_datetime(sheet_name, format="%Y_%m_%d")
+            df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+            return df.dropna(subset=['Symbol', 'Close'])
+        except Exception as e:
+            print(f"⚠️ Skipping {sheet_name}: {e}")
+            return pd.DataFrame()
+
+    with ThreadPoolExecutor() as executor:
+        dfs = list(executor.map(read_sheet, selected_sheets))
+
+    combined_df = pd.concat(dfs, ignore_index=True)
+    combined_df.sort_values(['Symbol', 'Date'], inplace=True)
+    combined_df['Prev_Close'] = combined_df.groupby('Symbol')['Close'].shift(1)
+    combined_df = combined_df[(combined_df['Close'] != combined_df['Prev_Close']) | (combined_df['Prev_Close'].isna())]
+    combined_df.drop(columns=['Prev_Close'], inplace=True)
+
+    start_date = combined_df['Date'].min().date()
+    end_date = combined_df['Date'].max().date()
+
+    results = []
+    symbols = combined_df['Symbol'].unique()
+
+    for symbol in symbols:
+        df = combined_df[combined_df['Symbol'] == symbol].copy()
+        df = df.sort_values('Date')
+        df[f'SMA{short_window}'] = df['Close'].rolling(window=short_window, min_periods=1).mean()
+        df[f'SMA{long_window}'] = df['Close'].rolling(window=long_window, min_periods=1).mean()
+        df['GoldenCross'] = (
+            df[f'SMA{short_window}'] > df[f'SMA{long_window}']
+        ) & (
+            df[f'SMA{short_window}'].shift(1) <= df[f'SMA{long_window}'].shift(1)
+        )
+        df['Symbol'] = symbol
+        results.append(df)
+
+    processed = pd.concat(results, ignore_index=True)
+    unique_dates = processed['Date'].drop_duplicates().sort_values(ascending=False)
+    recent_unique_dates = unique_dates[:recent_window]
+
+    recent_crosses = processed[
+        (processed['Date'].isin(recent_unique_dates)) & (processed['GoldenCross'])
+    ]
+
+    global email_body
+    output=f"\n🟡 [{short_window}-{long_window}] Golden Cross detected in last {recent_window} trading days (up to {recent_unique_dates.max().date()}):"
+    print(output)
+    email_body+=output
+    
+    if recent_crosses.empty:
+        print("No Golden Cross detected.")
+    else:
+        sorted_crosses = recent_crosses.sort_values('Date', ascending=False)
+        for _, row in sorted_crosses.iterrows():
+            output=f" - {row['Symbol']}: {row['Date'].date()}"
+            print(output)
+            email_body+=output
+
+
 
 if __name__ == "__main__":
-    main()
+    for label, (short_window, long_window) in windows.items():
+        detect_golden_cross(excel_path, short_window, long_window, recent_window=7)
+    if len(email_body)==0:
+        sending_mail=False
+    if sending_mail:
+        sending_email.send_email(email_subject,email_body)
+

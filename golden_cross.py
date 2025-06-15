@@ -5,6 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 # --- CONFIG ---
 excel_path = "combined_excel.xlsx"
+
+
+
+windows = {
+    "window1": [5, 20],
+    "window2": [20, 50],
+    "window3": [50, 200]
+}
+
 short_window = 20
 long_window = 50
 if(long_window==20):
@@ -45,7 +54,7 @@ start_date = combined_df['Date'].min().date()
 end_date = combined_df['Date'].max().date()
 # print(f"\n📅 Data range used for Golden Cross calculation: {start_date} to {end_date}")
 
-# --- STEP 4: Detect golden cross manually without groupby().apply() ---
+# --- STEP 4: 
 results = []
 
 symbols = combined_df['Symbol'].unique()

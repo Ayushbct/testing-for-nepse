@@ -1,4 +1,4 @@
-name: Run .py files on change
+name: Run .py files from Broker_Analysis.xlsx
 
 on:
   push:
