@@ -1,0 +1,29 @@
+name: Run .py to download combined_excel.xlsx
+
+on:
+  schedule:
+    - cron: '15 3 * * 0-5'  # Sunday (0) to Friday (5), 3:15 AM UTC (9:00 AM NPT)
+  push:
+    # paths:
+    #   - '**'
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run download_all_nepse.py
+        run: python download_all_nepse.py
