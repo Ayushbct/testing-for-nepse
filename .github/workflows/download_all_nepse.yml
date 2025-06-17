@@ -2,14 +2,7 @@ name: Run .py to download combined_excel.xlsx
 
 on:
   schedule:
-    # - cron: '15 3 * * 0-5'  # Sunday (0) to Friday (5), 3:15 AM UTC (9:00 AM NPT)
-    
-    - cron: '5 5 * * *'  
-  
-
-  # push:
-    # paths:
-    #   - '**'
+    - cron: '5 5 * * *'  # Runs daily at 5:05 AM UTC (10:50 AM NPT)
   workflow_dispatch:
 
 jobs:
@@ -19,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # Needed for pushing back to repo
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -37,6 +32,9 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git add combined_excel.xlsx
-          git commit -m "Add/update combined_excel.xlsx [automated]"
-          git push
 
+          # Only commit if file has changed
+          git diff --cached --quiet || (
+            git commit -m "Add/update combined_excel.xlsx [automated]"
+            git push origin HEAD:${{ github.ref }}
+          )
