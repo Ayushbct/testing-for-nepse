@@ -3,7 +3,9 @@ name: Run .py to download combined_excel.xlsx
 on:
   schedule:
     # - cron: '15 3 * * 0-5'  # Sunday (0) to Friday (5), 3:15 AM UTC (9:00 AM NPT)
-    - cron: '0 4 * * *'
+    
+    - cron: '10 4 * * *'  # Runs at 4:10 AM UTC (in 5 minutes)
+  
 
   # push:
     # paths:
