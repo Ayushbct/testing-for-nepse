@@ -4,6 +4,7 @@ on:
   push:
     paths: 
       - 'combined_excel.xlsx'
+  workflow_dispatch:
     
 
 jobs:

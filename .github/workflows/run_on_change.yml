@@ -5,6 +5,7 @@ on:
     paths: 
       - 'Broker_Analysis.xlsx'
     # - '**'
+  workflow_dispatch:
 
 jobs:
   run-script:
