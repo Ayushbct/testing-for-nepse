@@ -27,14 +27,19 @@ jobs:
       - name: Run download_all_nepse.py
         run: python download_all_nepse.py
 
-      - name: Commit and push combined_excel.xlsx
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add combined_excel.xlsx
+      
 
-          # Only commit if file has changed
-          git diff --cached --quiet || (
-            git commit -m "Add/update combined_excel.xlsx [automated]"
-            git push origin HEAD:${{ github.ref }}
-          )
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+
+      - name: Commit and push changes
+        run: |
+          git add combined_excel.xlsx
+          git diff --cached --quiet combined_excel.xlsx || git commit -m "📝 Update combined_excel.xlsx [automated]"
+          git push origin main
+
+          
+      
