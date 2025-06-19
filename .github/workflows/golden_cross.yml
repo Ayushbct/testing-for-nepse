@@ -1,15 +1,10 @@
 name: Run .py files from combined_excel.xlsx
 
 on:
-  workflow_run:
-    workflows: ["Run .py to download combined_excel.xlsx"]
-    types:
-      - completed
   push:
     paths: 
-      - 'combined_excel.xlsx'
+      - 'combined_excel.xlsx'  # Triggers only when this file changes
   workflow_dispatch:
-    
 
 jobs:
   run-script:
@@ -30,10 +25,6 @@ jobs:
 
       - name: Run golden_cross.py
         env:
-          
           USER_EMAIL: ${{ secrets.USER_EMAIL }}    
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
         run: python golden_cross.py
-      
-      
-
