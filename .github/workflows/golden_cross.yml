@@ -1,6 +1,10 @@
 name: Run .py files from combined_excel.xlsx
 
 on:
+  workflow_run:
+    workflows: ["Run .py to download combined_excel.xlsx"]
+    types:
+      - completed
   push:
     paths: 
       - 'combined_excel.xlsx'
