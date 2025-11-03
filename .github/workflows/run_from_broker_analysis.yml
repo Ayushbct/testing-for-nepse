@@ -4,7 +4,6 @@ on:
   push:
     paths: 
       - 'Broker_Analysis.xlsx'
-    # - '**'
   workflow_dispatch:
 
 jobs:
@@ -13,16 +12,20 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt || true
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found, skipping installation."
+          fi
 
       - name: Run Broker_holdings.py
         env:
@@ -33,10 +36,4 @@ jobs:
           USER_EMAIL: ${{ secrets.USER_EMAIL }}    
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
         run: python "Broker_holdings.py"
-      - name: Run top_broker.py
-        env:
-          USER_EMAIL: ${{ secrets.USER_EMAIL }}    
-          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
-        run: python top_broker.py
       
-
