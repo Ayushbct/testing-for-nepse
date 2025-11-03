@@ -1,4 +1,4 @@
-name: Run .py files from combined_excel.xlsx
+name: Run .py for golden_cross from combined_excel.xlsx
 
 on:
   workflow_run:

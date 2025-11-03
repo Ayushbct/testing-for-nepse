@@ -1,4 +1,4 @@
-name: Run .py files from Broker_Analysis.xlsx
+name: Run .py for Broker_holdings from Broker_Analysis.xlsx
 
 on:
   push:
