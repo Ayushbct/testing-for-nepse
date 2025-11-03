@@ -19,9 +19,15 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Install system dependencies (for Pillow)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjpeg-dev zlib1g-dev libpng-dev libtiff-dev libfreetype6-dev
+
+      - name: Install Python dependencies
         run: |
           if [ -f requirements.txt ]; then
+            pip install --upgrade pip setuptools wheel
             pip install -r requirements.txt
           else
             echo "No requirements.txt found, skipping installation."
@@ -36,4 +42,4 @@ jobs:
           USER_EMAIL: ${{ secrets.USER_EMAIL }}    
           USER_PASSWORD: ${{ secrets.USER_PASSWORD }}    
         run: python "Broker_holdings.py"
-      
+
