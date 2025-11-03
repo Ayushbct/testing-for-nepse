@@ -12,7 +12,7 @@ email_body=""
 windows = {
     # "window1": [5, 20],
     "window2": [20, 50],
-    "window3": [50, 200]
+    # "window3": [50, 200]
 }
 
 # --- CONFIG ---
