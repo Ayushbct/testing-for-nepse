@@ -145,6 +145,7 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
+    today_str="2026-01-01"
     sheet_date_str = sheet_names[0]
 
     # Convert to datetime for comparison
@@ -153,7 +154,7 @@ def main():
 
     # Use today's date only if it's greater than the sheet name date
     if today_date > sheet_date:
-        print(f'{today_str} greater than latest date {sheet_date_str}')
+        print(f'Today str{today_str} greater than latest sheet date {sheet_date_str}')
         # today_str = sheet_date_str  
         exit()
         
@@ -167,6 +168,13 @@ def main():
     # Process
     df = preprocess(df)
     counts = count_companies(df)
+    # print(counts.head(15))
+    global email_body
+    email_body += "Top 15 Broker Holdings "+today_str+"\n"
+    for company, count in counts.head(15).items():
+        line=f"{company:<30} {count:>5}"
+        email_body +=line+"\n"
+        # print(line)
 
     # Save and upsert
     # txt_file = save_counts_to_file(counts, today_str)
@@ -199,9 +207,9 @@ def main():
     # Output results
     
     # email_subject=f"Company Holdings Net Change (oldest → latest):"
-    global email_body
-    print(f"\n{email_subject}")
     
+    print(f"\n{email_subject}")
+    email_body +="\n"+"Change in Broker Holdings:"
     for e in changes:
         output=(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
         
