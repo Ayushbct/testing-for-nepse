@@ -145,7 +145,7 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
-    today_str="2026-01-01"
+    # today_str="2026-01-01"
     sheet_date_str = sheet_names[0]
 
     # Convert to datetime for comparison
