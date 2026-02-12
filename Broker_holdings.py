@@ -13,6 +13,12 @@ email_body=""
 # List of brokers to check for persistent holdings
 BROKERS_TO_CHECK = ["B58", "B94", "B62"]  # Modify this list to include/exclude brokers
 
+# Number of sheets to check for persistence
+NUM_SHEETS_TO_CHECK = 20  # Total number of previous sheets to analyze
+
+# Minimum consecutive sheets a stock must appear in
+MIN_CONSECUTIVE_SHEETS = 3  # Stocks must appear in at least this many consecutive sheets
+
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
@@ -61,7 +67,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
 
 def count_companies(df: pd.DataFrame) -> pd.Series:
     """Count occurrences of companies in Top 1-5 columns."""
-    top_company_cols = [f'Top {i}_Company' for i in range(1, 6)]
+    top_company_cols = [f'Top {i}_Company' for i in range(1, 3)]
     all_companies = pd.concat([df[col] for col in top_company_cols if col in df])
     return all_companies.value_counts()
 
@@ -186,31 +192,73 @@ def get_previous_sheets(sheet_names: list, today_str: str, num_sheets: int = 3) 
 
 def find_persistent_stocks(dfs_list: list, sheet_dates: list, num_sheets: int = 3) -> dict:
     """
-    Find stocks that appear consistently across all provided sheets for brokers in BROKERS_TO_CHECK.
+    Find stocks that persist for at least MIN_CONSECUTIVE_SHEETS consecutive sheets for brokers in BROKERS_TO_CHECK.
     Only checks Top 1 and Top 2.
-    Returns dict: {broker: {persistent_stocks}}
+    Returns dict: {broker: {(stock, consecutive_count): consecutive_count, ...}}
     """
-    if len(dfs_list) < num_sheets:
+    if len(dfs_list) == 0:
         return {}
     
     all_broker_stocks = []
     for df in dfs_list:
-        all_broker_stocks.append(get_broker_stocks(df, top_n=2)) # if need more than top 2, change top_n accordingly
+        all_broker_stocks.append(get_broker_stocks(df, top_n=2))
     
     persistent = {}
     
     for broker in BROKERS_TO_CHECK:
-        # Find stocks common to all sheets for this broker
-        common_stocks = all_broker_stocks[0].get(broker, set()).copy()
+        # Collect all stocks this broker holds across all sheets
+        all_stocks = set()
+        for broker_holdings in all_broker_stocks:
+            all_stocks.update(broker_holdings.get(broker, set()))
         
-        for broker_holdings in all_broker_stocks[1:]:
-            stocks = broker_holdings.get(broker, set())
-            common_stocks = common_stocks.intersection(stocks)
+        # For each stock, find the longest consecutive streak
+        stock_persistence = {}
         
-        if common_stocks:
-            persistent[broker] = common_stocks
+        for stock in all_stocks:
+            max_consecutive = 0
+            current_consecutive = 0
+            
+            # Check each sheet in chronological order
+            for broker_holdings in all_broker_stocks:
+                if stock in broker_holdings.get(broker, set()):
+                    current_consecutive += 1
+                    max_consecutive = max(max_consecutive, current_consecutive)
+                else:
+                    current_consecutive = 0
+            
+            # Only include stocks that persist for at least MIN_CONSECUTIVE_SHEETS
+            if max_consecutive >= MIN_CONSECUTIVE_SHEETS:
+                stock_persistence[stock] = max_consecutive
+        
+        if stock_persistence:
+            persistent[broker] = stock_persistence
     
     return persistent
+
+
+def compare_today_with_persistent(today_df: pd.DataFrame, persistent_holdings: dict) -> dict:
+    """
+    Compare stocks from today's sheet (Top 1, 2, 3) with persistent holdings.
+    Returns dict: {broker: {stock: consecutive_count}} for stocks appearing in both today and persistent
+    """
+    today_stocks = get_broker_stocks(today_df, top_n=3)
+    
+    comparison = {}
+    
+    for broker in BROKERS_TO_CHECK:
+        today_broker_stocks = today_stocks.get(broker, set())
+        persistent_broker_stocks = persistent_holdings.get(broker, {})
+        
+        # Find stocks that appear in both today's Top 1-3 and are persistent
+        matching_stocks = {}
+        for stock, consecutive_count in persistent_broker_stocks.items():
+            if stock in today_broker_stocks:
+                matching_stocks[stock] = consecutive_count
+        
+        if matching_stocks:
+            comparison[broker] = matching_stocks
+    
+    return comparison
 
 
 def main():
@@ -308,14 +356,11 @@ def main():
         email_body +=output
         print(output)
     
-    # NEW FEATURE: Check for persistent stocks across 3 previous sheets
-    print("\n" + "="*80)
-    print("PERSISTENT BROKER HOLDINGS (stocks held for 3+ consecutive sheets)")
-    print("="*80)
+    # NEW FEATURE: Check for persistent stocks and compare with today's holdings
+    previous_sheet_names = get_previous_sheets(sheet_names, today_str, num_sheets=NUM_SHEETS_TO_CHECK)
     
-    previous_sheet_names = get_previous_sheets(sheet_names, today_str, num_sheets=3)
-    
-    if len(previous_sheet_names) >= 3:
+    persistent_holdings = {}
+    if len(previous_sheet_names) > 0:
         # Read the previous sheets
         previous_dfs = []
         for sheet_name in previous_sheet_names:
@@ -324,25 +369,39 @@ def main():
             previous_dfs.append(df_prev)
         
         # Find persistent stocks
-        persistent_holdings = find_persistent_stocks(previous_dfs, previous_sheet_names, num_sheets=3)
+        persistent_holdings = find_persistent_stocks(previous_dfs, previous_sheet_names, num_sheets=NUM_SHEETS_TO_CHECK)
+    
+    # COMPARISON: Compare today's stocks (Top 1-3) with persistent holdings
+    print("\n" + "="*80)
+    print(f"STOCKS IN TODAY'S TOP 1-3 WITH PERSISTENT HISTORY")
+    print("="*80)
+    
+    if persistent_holdings and len(previous_sheet_names) > 0:
+        comparison = compare_today_with_persistent(df, persistent_holdings)
         
-        email_body += "\n\n" + "Persistent Broker Holdings (3+ consecutive sheets):"
+        oldest_date = previous_sheet_names[0] if previous_sheet_names else "N/A"
+        email_body += "\n\n" + f"Analysis Period: {oldest_date} to {today_str} ({len(previous_sheet_names)} sheets checked)"
+        email_body += "\n" + f"Stocks in Today's Top 1-3 that have Persistent History:"
         
-        if persistent_holdings:
-            print(f"\nAnalyzing sheets: {' → '.join(previous_sheet_names)}")
-            for broker, stocks in sorted(persistent_holdings.items()):
-                stocks_str = ", ".join(sorted(stocks))
-                output = f"{broker:<30} {stocks_str}"
-                print(output)
-                email_body += "\n" + output
+        print(f"\nAnalysis Period: {oldest_date} to {today_str} ({len(previous_sheet_names)} sheets)")
+        
+        if comparison:
+            for broker, matching_stocks in sorted(comparison.items()):
+                print(f"\n{broker}:")
+                email_body += f"\n\n{broker}:"
+                for stock, consecutive_count in sorted(matching_stocks.items()):
+                    output = f"  {stock:<20} (previously held for {consecutive_count} consecutive sheets)"
+                    print(output)
+                    email_body += "\n" + output
         else:
-            output = "No stocks found that persist across all 3 sheets for any broker."
+            output = "No stocks from today's Top 1-3 found in the persistent holdings list."
             print(output)
             email_body += "\n" + output
     else:
-        output = f"Not enough previous sheets for analysis. Need 3, found {len(previous_sheet_names)}."
+        output = "Cannot compare: No persistent holdings data available."
         print(output)
         email_body += "\n" + output
+
 
     
 
