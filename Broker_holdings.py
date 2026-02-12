@@ -11,7 +11,7 @@ email_subject=""
 email_body=""
 
 # List of brokers to check for persistent holdings
-BROKERS_TO_CHECK = ["B58", "B94", "B62"]  # Modify this list to include/exclude brokers
+BROKERS_TO_CHECK = ["B58", "B94", "B62","B46","B87"]  # Modify this list to include/exclude brokers
 
 # Number of sheets to check for persistence
 NUM_SHEETS_TO_CHECK = 20  # Total number of previous sheets to analyze
@@ -165,6 +165,27 @@ def get_broker_stocks(df: pd.DataFrame, top_n: int = 2) -> dict:
     return broker_stocks
 
 
+def get_broker_positions(df: pd.DataFrame, top_n: int = 2) -> dict:
+    """
+    Return broker -> position -> stock mapping for a single sheet.
+    Example: { 'B58': {'Top 1': 'ABC', 'Top 2': 'XYZ'}, ... }
+    """
+    broker_positions = {}
+    broker_col = df.columns[0]
+    for idx, row in df.iterrows():
+        broker = row[broker_col]
+        pos_map = {}
+        for i in range(1, top_n + 1):
+            col = f'Top {i}'
+            stock = None
+            if col in df.columns and pd.notna(row[col]):
+                stock = str(row[col]).split('/')[0].strip()
+            pos_map[col] = stock
+        broker_positions[broker] = pos_map
+
+    return broker_positions
+
+
 def get_previous_sheets(sheet_names: list, today_str: str, num_sheets: int = 3) -> list:
     """
     Get the previous N sheets before today_str.
@@ -199,36 +220,62 @@ def find_persistent_stocks(dfs_list: list, sheet_dates: list, num_sheets: int = 
     if len(dfs_list) == 0:
         return {}
     
-    all_broker_stocks = []
+    # For each sheet produce broker -> {position: stock}
+    all_broker_positions = []
     for df in dfs_list:
-        all_broker_stocks.append(get_broker_stocks(df, top_n=2))
+        all_broker_positions.append(get_broker_positions(df, top_n=2))
     
     persistent = {}
     
     for broker in BROKERS_TO_CHECK:
-        # Collect all stocks this broker holds across all sheets
-        all_stocks = set()
-        for broker_holdings in all_broker_stocks:
-            all_stocks.update(broker_holdings.get(broker, set()))
-        
-        # For each stock, find the longest consecutive streak
+
+        # Collect all stocks this broker holds across all sheets and positions
+        # We'll track consecutive occurrences per (stock, position)
+        stock_pos_max = {}  # (stock, position) -> max_consecutive
+
+        # Build list of per-sheet position maps for this broker in chronological order
+        per_sheet_positions = [bp.get(broker, {}) for bp in all_broker_positions]
+
+        # For each position (Top 1, Top 2) compute streaks
+        positions = [f'Top {i}' for i in range(1, 3)]
+        for position in positions:
+            # Collect all stocks that ever appear in this position for this broker
+            stocks_in_position = set()
+            for pos_map in per_sheet_positions:
+                stock = pos_map.get(position)
+                if stock:
+                    stocks_in_position.add(stock)
+
+            # For each stock, compute the longest consecutive streak in this exact position
+            for stock in stocks_in_position:
+                max_consecutive = 0
+                current_consecutive = 0
+                start_index_for_max = None
+                for idx, pos_map in enumerate(per_sheet_positions):
+                    if pos_map.get(position) == stock:
+                        current_consecutive += 1
+                        if current_consecutive > max_consecutive:
+                            max_consecutive = current_consecutive
+                            start_index_for_max = idx - current_consecutive + 1
+                    else:
+                        current_consecutive = 0
+
+                # store both max streak and starting index (chronological index)
+                stock_pos_max[(stock, position)] = (max_consecutive, start_index_for_max)
+
+        # Reduce across positions to get the best (longest) consecutive streak per stock
         stock_persistence = {}
-        
-        for stock in all_stocks:
-            max_consecutive = 0
-            current_consecutive = 0
-            
-            # Check each sheet in chronological order
-            for broker_holdings in all_broker_stocks:
-                if stock in broker_holdings.get(broker, set()):
-                    current_consecutive += 1
-                    max_consecutive = max(max_consecutive, current_consecutive)
-                else:
-                    current_consecutive = 0
-            
-            # Only include stocks that persist for at least MIN_CONSECUTIVE_SHEETS
-            if max_consecutive >= MIN_CONSECUTIVE_SHEETS:
-                stock_persistence[stock] = max_consecutive
+        for (stock, _pos), val in stock_pos_max.items():
+            streak, start_idx = val
+            if streak >= MIN_CONSECUTIVE_SHEETS:
+                # choose the best streak across positions; keep its start index
+                prev = stock_persistence.get(stock)
+                if prev is None or streak > prev['streak']:
+                    # map start_idx to date string if provided
+                    start_date = None
+                    if start_idx is not None and start_idx < len(sheet_dates):
+                        start_date = sheet_dates[start_idx]
+                    stock_persistence[stock] = {'streak': streak, 'start_date': start_date}
         
         if stock_persistence:
             persistent[broker] = stock_persistence
@@ -251,9 +298,10 @@ def compare_today_with_persistent(today_df: pd.DataFrame, persistent_holdings: d
         
         # Find stocks that appear in both today's Top 1-3 and are persistent
         matching_stocks = {}
-        for stock, consecutive_count in persistent_broker_stocks.items():
+        for stock, info in persistent_broker_stocks.items():
             if stock in today_broker_stocks:
-                matching_stocks[stock] = consecutive_count
+                # info is {'streak': int, 'start_date': str}
+                matching_stocks[stock] = info
         
         if matching_stocks:
             comparison[broker] = matching_stocks
@@ -389,8 +437,10 @@ def main():
             for broker, matching_stocks in sorted(comparison.items()):
                 print(f"\n{broker}:")
                 email_body += f"\n\n{broker}:"
-                for stock, consecutive_count in sorted(matching_stocks.items()):
-                    output = f"  {stock:<20} (previously held for {consecutive_count} consecutive sheets)"
+                for stock, info in sorted(matching_stocks.items()):
+                    streak = info.get('streak')
+                    start_date = info.get('start_date') or "N/A"
+                    output = f"  {stock:<20} (held for {streak} sheets starting {start_date})"
                     print(output)
                     email_body += "\n" + output
         else:
