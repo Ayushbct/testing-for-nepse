@@ -10,6 +10,9 @@ sending_mail=True
 email_subject=""
 email_body=""
 
+# List of brokers to check for persistent holdings
+BROKERS_TO_CHECK = ["B58", "B94", "B62"]  # Modify this list to include/exclude brokers
+
 def load_environment():
     """Load environment variables and return credentials."""
     load_dotenv()
@@ -129,6 +132,87 @@ def compute_net_changes(docs: list) -> list:
     )
 
 
+def get_broker_stocks(df: pd.DataFrame, top_n: int = 2) -> dict:
+    """
+    Extract stocks held by each broker from Top 1 to Top N.
+    Returns dict: {broker_name: {stock1, stock2, ...}}
+    """
+    broker_stocks = {}
+    
+    # Assuming first column is broker name
+    broker_col = df.columns[0]
+    top_cols = [f'Top {i}' for i in range(1, top_n + 1)]
+    
+    for idx, row in df.iterrows():
+        broker = row[broker_col]
+        stocks = set()
+        
+        for col in top_cols:
+            if col in df.columns and pd.notna(row[col]):
+                # Extract stock name (before first "/")
+                stock = str(row[col]).split('/')[0].strip()
+                stocks.add(stock)
+        
+        if stocks:
+            broker_stocks[broker] = stocks
+    
+    return broker_stocks
+
+
+def get_previous_sheets(sheet_names: list, today_str: str, num_sheets: int = 3) -> list:
+    """
+    Get the previous N sheets before today_str.
+    Returns list of sheet names sorted by date.
+    """
+    try:
+        today_date = datetime.strptime(today_str, '%Y-%m-%d')
+    except ValueError:
+        return []
+    
+    # Filter sheets that are before today and sort them
+    previous_sheets = []
+    for sheet in sheet_names:
+        try:
+            sheet_date = datetime.strptime(sheet, '%Y-%m-%d')
+            if sheet_date < today_date:
+                previous_sheets.append((sheet_date, sheet))
+        except ValueError:
+            continue
+    
+    # Sort by date and get the last N sheets
+    previous_sheets.sort(key=lambda x: x[0], reverse=True)
+    return [sheet for _, sheet in previous_sheets[:num_sheets]][::-1]  # Reverse to chronological order
+
+
+def find_persistent_stocks(dfs_list: list, sheet_dates: list, num_sheets: int = 3) -> dict:
+    """
+    Find stocks that appear consistently across all provided sheets for brokers in BROKERS_TO_CHECK.
+    Only checks Top 1 and Top 2.
+    Returns dict: {broker: {persistent_stocks}}
+    """
+    if len(dfs_list) < num_sheets:
+        return {}
+    
+    all_broker_stocks = []
+    for df in dfs_list:
+        all_broker_stocks.append(get_broker_stocks(df, top_n=2)) # if need more than top 2, change top_n accordingly
+    
+    persistent = {}
+    
+    for broker in BROKERS_TO_CHECK:
+        # Find stocks common to all sheets for this broker
+        common_stocks = all_broker_stocks[0].get(broker, set()).copy()
+        
+        for broker_holdings in all_broker_stocks[1:]:
+            stocks = broker_holdings.get(broker, set())
+            common_stocks = common_stocks.intersection(stocks)
+        
+        if common_stocks:
+            persistent[broker] = common_stocks
+    
+    return persistent
+
+
 def main():
     # Setup
     user, pwd, db_name, coll_name = load_environment()
@@ -145,7 +229,7 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
-    # today_str="2026-01-01"
+    today_str="2026-02-11"
     sheet_date_str = sheet_names[0]
 
     # Convert to datetime for comparison
@@ -154,7 +238,7 @@ def main():
 
     # Use today's date only if it's greater than the sheet name date
     if today_date > sheet_date:
-        print(f'Today str{today_str} greater than latest sheet date {sheet_date_str}')
+        print(f'Today str {today_str} greater than latest sheet date {sheet_date_str}')
         # today_str = sheet_date_str  
         exit()
         
@@ -170,11 +254,12 @@ def main():
     counts = count_companies(df)
     # print(counts.head(15))
     global email_body
+    print("\nTop 15 Broker Holdings "+today_str+"\n")
     email_body += "Top 15 Broker Holdings "+today_str+"\n"
     for company, count in counts.head(15).items():
         line=f"{company:<30} {count:>5}"
         email_body +=line+"\n"
-        # print(line)
+        print(line)
 
     # Save and upsert
     # txt_file = save_counts_to_file(counts, today_str)
@@ -208,7 +293,7 @@ def main():
     
     # email_subject=f"Company Holdings Net Change (oldest → latest):"
     
-    print(f"\n{email_subject}")
+    print(f"\n{email_subject}\n")
     email_body +="\n"+"Change in Broker Holdings:"
     for e in changes:
         output=(f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
@@ -222,6 +307,43 @@ def main():
         output="No difference found with the filter"
         email_body +=output
         print(output)
+    
+    # NEW FEATURE: Check for persistent stocks across 3 previous sheets
+    print("\n" + "="*80)
+    print("PERSISTENT BROKER HOLDINGS (stocks held for 3+ consecutive sheets)")
+    print("="*80)
+    
+    previous_sheet_names = get_previous_sheets(sheet_names, today_str, num_sheets=3)
+    
+    if len(previous_sheet_names) >= 3:
+        # Read the previous sheets
+        previous_dfs = []
+        for sheet_name in previous_sheet_names:
+            df_prev = read_sheet('Broker_Analysis.xlsx', sheet_name=sheet_name)
+            df_prev = preprocess(df_prev)
+            previous_dfs.append(df_prev)
+        
+        # Find persistent stocks
+        persistent_holdings = find_persistent_stocks(previous_dfs, previous_sheet_names, num_sheets=3)
+        
+        email_body += "\n\n" + "Persistent Broker Holdings (3+ consecutive sheets):"
+        
+        if persistent_holdings:
+            print(f"\nAnalyzing sheets: {' → '.join(previous_sheet_names)}")
+            for broker, stocks in sorted(persistent_holdings.items()):
+                stocks_str = ", ".join(sorted(stocks))
+                output = f"{broker:<30} {stocks_str}"
+                print(output)
+                email_body += "\n" + output
+        else:
+            output = "No stocks found that persist across all 3 sheets for any broker."
+            print(output)
+            email_body += "\n" + output
+    else:
+        output = f"Not enough previous sheets for analysis. Need 3, found {len(previous_sheet_names)}."
+        print(output)
+        email_body += "\n" + output
+
     
 
 
