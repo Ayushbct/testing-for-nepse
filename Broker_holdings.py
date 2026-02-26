@@ -9,6 +9,7 @@ manual_input=False
 sending_mail=True
 email_subject=""
 email_body=""
+attachment_file=""
 
 # List of brokers to check for persistent holdings
 BROKERS_TO_CHECK = ["B58", "B94", "B62","B46","B87"]  # Modify this list to include/exclude brokers
@@ -366,7 +367,7 @@ def main():
 
     # Read today's sheet
     today_str = datetime.today().strftime('%Y-%m-%d')
-    # today_str="2026-02-12"
+    # today_str="2026-02-26"
     sheet_date_str = sheet_names[0]
 
     # Convert to datetime for comparison
@@ -500,5 +501,11 @@ def main():
 if __name__ == "__main__":
     main()
     if sending_mail:
-        sending_email.send_email(email_subject,email_body)
+        # Attach the entire Broker_Analysis.xlsx file
+        attachment_file = 'Broker_Analysis.xlsx'
+        if os.path.isfile(attachment_file):
+            sending_email.send_email(email_subject, email_body, attachment_file)
+        else:
+            print(f'Warning: {attachment_file} not found. Sending email without attachment.')
+            sending_email.send_email(email_subject, email_body)
 
