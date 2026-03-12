@@ -292,7 +292,7 @@ def find_persistent_stocks(dfs_list: list, sheet_dates: list, num_sheets: int = 
         
         for (stock, _pos), val in stock_pos_max.items():
             streak, start_idx = val
-            if streak > MIN_CONSECUTIVE_SHEETS:
+            if streak >= MIN_CONSECUTIVE_SHEETS:
                 includes_latest = (start_idx + streak - 1 == last_sheet_idx)
                 
                 # choose the best streak across positions
@@ -508,5 +508,6 @@ if __name__ == "__main__":
         else:
             print(f'Warning: {attachment_file} not found. Sending email without attachment.')
             sending_email.send_email(email_subject, email_body)
+
 
 
