@@ -12,7 +12,7 @@ email_body=""
 attachment_file=""
 
 # List of brokers to check for persistent holdings
-BROKERS_TO_CHECK = ["B58", "B94", "B62","B46","B87"]  # Modify this list to include/exclude brokers
+BROKERS_TO_CHECK = ["B46","B58", "B62","B77","B87", "B94"]  # Modify this list to include/exclude brokers
 
 # Number of sheets to check for persistence
 NUM_SHEETS_TO_CHECK = 20  # Total number of previous sheets to analyze
@@ -229,99 +229,63 @@ def find_persistent_stocks(dfs_list: list, sheet_dates: list, num_sheets: int = 
     persistent = {}
     
     for broker in BROKERS_TO_CHECK:
+        # Build a consecutive-presence list for this broker (any of Top 1/2/3 counts)
+        per_sheet_stock_sets = []
+        for bp in all_broker_positions:
+            positions = bp.get(broker, {})
+            stocks = {s for s in positions.values() if s}
+            per_sheet_stock_sets.append(stocks)
 
-        # Collect all stocks this broker holds across all sheets and positions
-        # We'll track consecutive occurrences per (stock, position)
-        stock_pos_max = {}  # (stock, position) -> max_consecutive
+        # Determine all stocks that ever appear in the window
+        all_stocks = set().union(*per_sheet_stock_sets) if per_sheet_stock_sets else set()
 
-        # Build list of per-sheet position maps for this broker in chronological order
-        per_sheet_positions = [bp.get(broker, {}) for bp in all_broker_positions]
-
-        # For each position (Top 1, Top 2, Top 3) compute streaks
-        positions = [f'Top {i}' for i in range(1, 4)]
-        for position in positions:
-            # Collect all stocks that ever appear in this position for this broker
-            stocks_in_position = set()
-            for pos_map in per_sheet_positions:
-                stock = pos_map.get(position)
-                if stock:
-                    stocks_in_position.add(stock)
-
-            # For each stock, compute all consecutive streaks and prefer the most recent one
-            for stock in stocks_in_position:
-                all_streaks = []  # List of (start_idx, streak_length) tuples
-                current_consecutive = 0
-                current_start = None
-                
-                for idx, pos_map in enumerate(per_sheet_positions):
-                    if pos_map.get(position) == stock:
-                        if current_consecutive == 0:
-                            current_start = idx
-                        current_consecutive += 1
-                    else:
-                        if current_consecutive > 0:
-                            all_streaks.append((current_start, current_consecutive))
-                        current_consecutive = 0
-                
-                # Don't forget the last streak if it ends at the last sheet
-                if current_consecutive > 0:
-                    all_streaks.append((current_start, current_consecutive))
-                
-                # Choose the best streak:
-                # 1. Prefer streaks that include the latest sheet (most recent)
-                # 2. If tied, prefer longer streaks
-                # 3. If still tied, prefer more recent start dates
-                if all_streaks:
-                    last_sheet_idx = len(per_sheet_positions) - 1
-                    includes_latest = [(s, l) for s, l in all_streaks if s + l - 1 == last_sheet_idx]
-                    
-                    if includes_latest:
-                        # Prefer streak that includes today
-                        best_streak = max(includes_latest, key=lambda x: (x[1], x[0]))
-                    else:
-                        # Otherwise, pick the longest/most recent
-                        best_streak = max(all_streaks, key=lambda x: (x[1], x[0]))
-                    
-                    start_index_for_max, max_consecutive = best_streak
-                    stock_pos_max[(stock, position)] = (max_consecutive, start_index_for_max)
-
-        # Reduce across positions to get the best (longest) consecutive streak per stock
-        # Prefer streaks that include the latest sheet
+        # Track best streak for each stock
         stock_persistence = {}
         last_sheet_idx = len(sheet_dates) - 1
-        
-        for (stock, _pos), val in stock_pos_max.items():
-            streak, start_idx = val
-            if streak >= MIN_CONSECUTIVE_SHEETS:
-                includes_latest = (start_idx + streak - 1 == last_sheet_idx)
-                
-                # choose the best streak across positions
-                prev = stock_persistence.get(stock)
-                if prev is None:
-                    # map start_idx to date string if provided
-                    start_date = None
-                    if start_idx is not None and start_idx < len(sheet_dates):
-                        start_date = sheet_dates[start_idx]
-                    stock_persistence[stock] = {'streak': streak, 'start_date': start_date, 'includes_latest': includes_latest}
+
+        for stock in sorted(all_stocks):
+            all_streaks = []
+            current_consecutive = 0
+            current_start = None
+
+            for idx, stock_set in enumerate(per_sheet_stock_sets):
+                if stock in stock_set:
+                    if current_consecutive == 0:
+                        current_start = idx
+                    current_consecutive += 1
                 else:
-                    # Prefer streaks that include the latest sheet
-                    if includes_latest and not prev.get('includes_latest', False):
-                        # Current includes latest, previous doesn't - switch
-                        start_date = None
-                        if start_idx is not None and start_idx < len(sheet_dates):
-                            start_date = sheet_dates[start_idx]
-                        stock_persistence[stock] = {'streak': streak, 'start_date': start_date, 'includes_latest': includes_latest}
-                    elif includes_latest == prev.get('includes_latest', False):
-                        # Both include latest or neither does - prefer longer streak
-                        if streak > prev['streak']:
-                            start_date = None
-                            if start_idx is not None and start_idx < len(sheet_dates):
-                                start_date = sheet_dates[start_idx]
-                            stock_persistence[stock] = {'streak': streak, 'start_date': start_date, 'includes_latest': includes_latest}
-        
+                    if current_consecutive > 0:
+                        all_streaks.append((current_start, current_consecutive))
+                    current_consecutive = 0
+
+            # Add final streak if it runs through the last sheet
+            if current_consecutive > 0:
+                all_streaks.append((current_start, current_consecutive))
+
+            if not all_streaks:
+                continue
+
+            # Prefer streak that includes the latest sheet; if none, pick the longest
+            includes_latest = [(s, l) for s, l in all_streaks if s + l - 1 == last_sheet_idx]
+            if includes_latest:
+                best_streak = max(includes_latest, key=lambda x: (x[1], x[0]))
+            else:
+                best_streak = max(all_streaks, key=lambda x: (x[1], x[0]))
+
+            start_idx, streak = best_streak
+            if streak >= MIN_CONSECUTIVE_SHEETS:
+                start_date = None
+                if start_idx is not None and start_idx < len(sheet_dates):
+                    start_date = sheet_dates[start_idx]
+                stock_persistence[stock] = {
+                    'streak': streak,
+                    'start_date': start_date,
+                    'includes_latest': (start_idx + streak - 1 == last_sheet_idx)
+                }
+
         if stock_persistence:
             persistent[broker] = stock_persistence
-    
+
     return persistent
 
 
@@ -365,26 +329,35 @@ def main():
     xls = pd.ExcelFile('Broker_Analysis.xlsx')
     sheet_names = xls.sheet_names
 
-    # Read today's sheet
+    # Choose which sheet to analyze
+    # Prefer today's sheet if it exists; otherwise fall back to the latest available sheet.
     today_str = datetime.today().strftime('%Y-%m-%d')
-    # today_str="2026-02-26"
-    sheet_date_str = sheet_names[0]
+    # today_str = "2026-02-26"
 
-    # Convert to datetime for comparison
-    today_date = datetime.strptime(today_str, '%Y-%m-%d')
-    sheet_date = datetime.strptime(sheet_date_str, '%Y-%m-%d')  
+    # Find the latest date-formatted sheet name (safe parsing)
+    valid_sheets = []
+    for s in sheet_names:
+        try:
+            valid_sheets.append((datetime.strptime(s, '%Y-%m-%d'), s))
+        except ValueError:
+            continue
 
-    # Use today's date only if it's greater than the sheet name date
-    if today_date > sheet_date:
-        print(f'Today str {today_str} greater than latest sheet date {sheet_date_str}')
-        # today_str = sheet_date_str  
-        exit()
-        
-        
-    
-    
-    # Read the appropriate sheet
-    df = read_sheet('Broker_Analysis.xlsx', sheet_name=today_str)
+    if not valid_sheets:
+        raise RuntimeError('No date-formatted sheets found in Broker_Analysis.xlsx')
+
+    latest_sheet_str = max(valid_sheets)[1]
+
+    if today_str in sheet_names:
+        analysis_str = today_str
+    else:
+        analysis_str = latest_sheet_str
+        print(f"Using latest available sheet {analysis_str} (today {today_str} not found).")
+
+    # Read the appropriate sheet for analysis
+    df = read_sheet('Broker_Analysis.xlsx', sheet_name=analysis_str)
+
+    # Use the analysis date for the remainder of the run
+    today_str = analysis_str
     
     
     # Process
