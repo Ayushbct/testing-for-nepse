@@ -12,7 +12,7 @@ email_body=""
 attachment_file=""
 
 # List of brokers to check for persistent holdings
-BROKERS_TO_CHECK = ["B46","B58", "B62","B77","B87", "B94"]  # Modify this list to include/exclude brokers
+BROKERS_TO_CHECK = ["B34","B42","B45","B48","B58"]  # Modify this list to include/exclude brokers
 
 # Number of sheets to check for persistence
 NUM_SHEETS_TO_CHECK = 20  # Total number of previous sheets to analyze
