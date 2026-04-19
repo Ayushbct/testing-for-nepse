@@ -1,8 +1,9 @@
 name: Run .py to download combined_excel.xlsx
 
 on:
-  schedule:
-    - cron: '15 1 * * *'  # 1:15 AM UTC (7:00 AM NPT)
+
+  # schedule:
+  #   - cron: '15 1 * * *'  # 1:15 AM UTC (7:00 AM NPT)
 
   workflow_dispatch:
 

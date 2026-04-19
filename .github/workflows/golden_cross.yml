@@ -1,10 +1,10 @@
 name: Run .py for golden_cross from combined_excel.xlsx
 
 on:
-  workflow_run:
-    workflows: ["Run .py to download combined_excel.xlsx"]
-    types:
-      - completed
+  # workflow_run:
+  #   workflows: ["Run .py to download combined_excel.xlsx"]
+  #   types:
+  #     - completed
   workflow_dispatch:
 
 jobs:
