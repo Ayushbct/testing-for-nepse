@@ -75,11 +75,14 @@ def count_companies(df: pd.DataFrame) -> pd.DataFrame:
     all_data = []
     for company_col, amount_col in zip(top_company_cols, top_amount_cols):
         if company_col in df.columns:
-            data = pd.DataFrame({
-                'company': df[company_col].dropna(),
+            # Create DataFrame with aligned indices
+            temp_df = pd.DataFrame({
+                'company': df[company_col],
                 'amount': df[amount_col] if amount_col in df.columns else 0
             })
-            all_data.append(data)
+            # Drop rows where company is NaN
+            temp_df = temp_df.dropna(subset=['company'])
+            all_data.append(temp_df)
     
     if not all_data:
         return pd.DataFrame()
@@ -150,8 +153,13 @@ def compute_net_changes(docs: list) -> list:
     companies = set(oldest['companies']) | set(latest['companies'])
     results = []
     for comp in sorted(companies):
-        prev = oldest['companies'].get(comp, 0)
-        curr = latest['companies'].get(comp, 0)
+        prev_data = oldest['companies'].get(comp, 0)
+        curr_data = latest['companies'].get(comp, 0)
+        
+        # Extract count value, handling both old format (int) and new format (dict)
+        prev = prev_data['count'] if isinstance(prev_data, dict) else prev_data
+        curr = curr_data['count'] if isinstance(curr_data, dict) else curr_data
+        
         diff = curr - prev
         if diff != 0 and (prev>=9 or curr>=9):
             results.append({
