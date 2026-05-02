@@ -66,26 +66,60 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def count_companies(df: pd.DataFrame) -> pd.Series:
-    """Count occurrences of companies in Top 1-5 columns."""
-    top_company_cols = [f'Top {i}_Company' for i in range(1, 3)]
-    all_companies = pd.concat([df[col] for col in top_company_cols if col in df])
-    return all_companies.value_counts()
+def count_companies(df: pd.DataFrame) -> pd.DataFrame:
+    """Count occurrences of companies in Top 1-5 columns and calculate average amounts."""
+    top_company_cols = [f'Top {i}_Company' for i in range(1, 6)]
+    top_amount_cols = [f'Top {i}_Amount' for i in range(1, 6)]
+    
+    # Collect all companies and their amounts
+    all_data = []
+    for company_col, amount_col in zip(top_company_cols, top_amount_cols):
+        if company_col in df.columns:
+            data = pd.DataFrame({
+                'company': df[company_col].dropna(),
+                'amount': df[amount_col] if amount_col in df.columns else 0
+            })
+            all_data.append(data)
+    
+    if not all_data:
+        return pd.DataFrame()
+    
+    combined = pd.concat(all_data, ignore_index=True)
+    
+    # Group by company and calculate count and average amount
+    result = combined.groupby('company').agg(
+        Count=('company', 'count'),
+        Average=('amount', 'mean')
+    ).sort_values('Count', ascending=False)
+    
+    return result
 
 
-def save_counts_to_file(counts: pd.Series, date_str: str) -> str:
-    """Save company counts to a text file and return filename."""
+def save_counts_to_file(counts: pd.DataFrame, date_str: str) -> str:
+    """Save company counts and averages to a text file and return filename."""
     filename = f'Top_5_Broker_holdings_{date_str}.txt'
     with open(filename, 'w') as f:
-        f.write(counts.reset_index().to_string(index=False, header=False))
+        # Write header and data with proper formatting
+        f.write(f"{'Company':<30} {'Count':>10} {'Average':>15}\n")
+        f.write("-" * 57 + "\n")
+        for company, row in counts.iterrows():
+            f.write(f"{company:<30} {row['Count']:>10} {row['Average']:>15,.2f}\n")
     return filename
 
 
-def upsert_counts(collection, date_str: str, counts: pd.Series):
+def upsert_counts(collection, date_str: str, counts: pd.DataFrame):
     """Upsert the counts into MongoDB with unique date index."""
+    # Convert DataFrame to dict format: {company: {count, average}}
+    companies_data = {}
+    for company, row in counts.iterrows():
+        companies_data[company] = {
+            'count': int(row['Count']),
+            'average': float(row['Average'])
+        }
+    
     doc = {
         "date": date_str,
-        "companies": counts.to_dict()
+        "companies": companies_data
     }
     collection.create_index("date", unique=True)
     collection.update_one(
@@ -367,8 +401,8 @@ def main():
     global email_body
     print("\nTop 15 Broker Holdings "+today_str+"\n")
     email_body += "Top 15 Broker Holdings "+today_str+"\n"
-    for company, count in counts.head(15).items():
-        line=f"{company:<30} {count:>5}"
+    for company, row in counts.head(15).iterrows():
+        line=f"{company:<30} Count: {row['Count']:>5}  Avg: {row['Average']:>12,.2f}"
         email_body +=line+"\n"
         print(line)
 
