@@ -12,10 +12,10 @@ email_body=""
 attachment_file=""
 
 # List of brokers to check for persistent holdings
-BROKERS_TO_CHECK = ["B34","B42","B45","B46","B48","B58"]  # Modify this list to include/exclude brokers
+BROKERS_TO_CHECK = ["B29","B85","B60","B64","B46","B48","B58"]  # Modify this list to include/exclude brokers
 
 # Number of sheets to check for persistence
-NUM_SHEETS_TO_CHECK = 20  # Total number of previous sheets to analyze
+NUM_SHEETS_TO_CHECK = 30  # Total number of previous sheets to analyze
 
 # Minimum consecutive sheets a stock must appear in
 MIN_CONSECUTIVE_SHEETS = 3  # Stocks must appear in at least this many consecutive sheets
