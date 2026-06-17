@@ -509,9 +509,24 @@ def main():
         print(output)
         email_body += "\n" + output
 
+    # Focus section: stocks in B58 persistent history with |change| >= 2
+    b58_persistent = set(persistent_holdings.get('B58', {}).keys())
+    focus_stocks = [e for e in changes if e['Company'] in b58_persistent and abs(e['Change']) >= 2]
 
-    
+    print("\n" + "="*80)
+    print("STOCKS TO FOCUS: B58 persistent history + |change| >= 2")
+    print("="*80)
+    email_body += "\n\nSTOCKS TO FOCUS: B58 persistent history + |change| >= 2"
 
+    if focus_stocks:
+        for e in focus_stocks:
+            output = (f"{e['Company']:<30} {e['Previous']:>3} → {e['Current']:>5}  ({e['Change']:+}, {e['Trend']})")
+            print(output)
+            email_body += "\n" + output
+    else:
+        output = "No B58 persistent stocks found with |change| >= 2."
+        print(output)
+        email_body += "\n" + output
 
 if __name__ == "__main__":
     main()
