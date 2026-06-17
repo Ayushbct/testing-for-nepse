@@ -509,26 +509,27 @@ def main():
         print(output)
         email_body += "\n" + output
 
-    # Focus section: stocks in today's Top 1-3 with persistent history
+    # Focus section: B58 stocks in today's Top 1-3 persistent holdings with |change| >= 2
     focus_entries = []
     if persistent_holdings and len(previous_sheet_names) > 0:
         comparison = compare_today_with_persistent(df, persistent_holdings)
-        for broker, matching_stocks in comparison.items():
-            for stock, info in matching_stocks.items():
-                focus_entries.append((broker, stock, info.get('streak'), info.get('start_date')))
+        b58_stocks = set(comparison.get('B58', {}).keys())
+        focus_stocks = [e for e in changes if e['Company'] in b58_stocks and abs(e['Change']) >= 2]
+        for e in focus_stocks:
+            focus_entries.append((e['Company'], e['Previous'], e['Current'], e['Change'], e['Trend']))
 
     print("\n" + "="*80)
-    print("STOCKS TO FOCUS: Today's Top 1-3 persistent holdings")
+    print("STOCKS TO FOCUS: B58 Top 1-3 persistent stocks with |change| >= 2")
     print("="*80)
-    email_body += "\n\nSTOCKS TO FOCUS: Today's Top 1-3 persistent holdings"
+    email_body += "\n\nSTOCKS TO FOCUS: B58 Top 1-3 persistent stocks with |change| >= 2"
 
     if focus_entries:
-        for broker, stock, streak, start_date in sorted(focus_entries):
-            output = (f"{broker}: {stock:<20} held for {streak} sheets starting {start_date}")
+        for company, previous, current, change, trend in sorted(focus_entries):
+            output = (f"{company:<30} {previous:>3} → {current:>5}  ({change:+}, {trend})")
             print(output)
             email_body += "\n" + output
     else:
-        output = "No persistent Top 1-3 stocks found to focus on."
+        output = "No B58 persistent Top 1-3 stocks found with |change| >= 2."
         print(output)
         email_body += "\n" + output
 
